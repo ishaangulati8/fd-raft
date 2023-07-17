@@ -1,0 +1,29 @@
+{
+"nodes": [
+    {
+        "id": 1,
+        "address": "localhost:3001",
+        "zone": 1
+    },
+    {
+        "id": 2,
+        "address": "localhost:3002",
+        "zone": 2
+    },
+    {
+        "id": 3,
+        "address": "localhost:3003",
+        "zone": 3
+    },
+    {
+        "id": 4,
+        "address": "localhost:3004",
+        "zone": 4
+    },
+    {
+        "id": 5,
+        "address": "localhost:3005",
+        "zone": 5
+    }
+]
+}
