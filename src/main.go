@@ -63,9 +63,9 @@ func main() {
 		}(ck[i], i)
 	}
 
-	time.Sleep(2 * time.Second)
-	fmt.Println("Killing leader")
-	servers[leader].Kill()
+	// time.Sleep(2 * time.Second)
+	// fmt.Println("Killing leader")
+	// servers[leader].Kill()
 	clientWg.Wait()
 	end := time.Now().UnixNano()
 
