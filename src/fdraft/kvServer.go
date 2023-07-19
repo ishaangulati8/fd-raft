@@ -102,7 +102,7 @@ func (kv *KVServer) Get(args *GetArgs, reply *GetReply) {
 	op := Op{Type: opGet, Key: args.Key, ClientId: args.ClientId, OpId: args.OpId}
 	// IMPORTANT: lock before rf.Start,
 	// to avoid raft finish too quick before kv.commandTbl has set replyCh for this commandIndex
-	start := time.Now().Nanosecond()
+	start := time.Now()
 	kv.mu.Lock()
 	index, term, isLeader := kv.rf.Start(op)
 	if term == 0 {
@@ -131,10 +131,12 @@ CheckTermAndWaitReply:
 				reply.Err = ErrShutdown
 				return
 			}
-			end := time.Now().Nanosecond()
+
+			duration := time.Since(start)
+			end := time.Now()
 			// get reply from applier goroutine
 			lablog.Debug(kv.me, lablog.Server, "Op %v at idx: %d get %v", op, index, result)
-			fmt.Println(start, ", ", end, ", ", end-start)
+			fmt.Println(start, ", ", end, ", ", duration.Nanoseconds())
 			*reply = GetReply{Err: result.Err, Value: result.Value}
 			return
 		case <-time.After(rpcHandlerCheckRaftTermInterval * time.Millisecond):
@@ -160,7 +162,7 @@ func (kv *KVServer) PutAppend(args *PutAppendArgs, reply *PutAppendReply) {
 	}
 
 	op := Op{Type: args.Op, Key: args.Key, Value: args.Value, ClientId: args.ClientId, OpId: args.OpId}
-	start := time.Now().Nanosecond()
+	start := time.Now()
 	kv.mu.Lock()
 	index, term, isLeader := kv.rf.Start(op)
 	if term == 0 {
@@ -187,8 +189,9 @@ CheckTermAndWaitReply:
 				reply.Err = ErrShutdown
 				return
 			}
-			end := time.Now().Nanosecond()
-			fmt.Println(start, ", ", end, ", ", end-start)
+			duration := time.Since(start)
+			end := time.Now()
+			fmt.Println(start, ", ", end, ", ", duration)
 			// get reply from applier goroutine
 			lablog.Debug(kv.me, lablog.Server, "Op %v at idx: %d completed", op, index)
 			reply.Err = result.Err
