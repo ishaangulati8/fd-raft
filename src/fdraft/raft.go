@@ -281,7 +281,7 @@ func (rf *Raft) CondInstallSnapshot(lastIncludedTerm int, lastIncludedIndex int,
 
 func (rf *Raft) Snapshot(index int, snapshot []byte) {
 	rf.mu.Lock()
-	// fmt.Println(rf.me, "Taking snapshot for the index: ", index, "and temp log: ", rf.snapShotCache)
+	// //fmt.Println(rf.me, "Taking snapshot for the index: ", index, "and temp log: ", rf.snapShotCache)
 	defer rf.mu.Unlock()
 	lastLogIndex, lastLogTerm := rf.getLastLogIndexAndTerm()
 	lablog.Debug(rf.me, lablog.Snap, "Received Snapshot for index %d, my last included index %d, and current lastLogIndex %d and lastLogTerm %d and last applied %d", index, rf.LastIncludedIndex, lastLogIndex, lastLogTerm, rf.lastApplied)
@@ -416,7 +416,7 @@ func Make(peers []Node, me int,
 	// go rf.heartBeatTicker()
 	go rf.committer()
 
-	fmt.Println("Me", rf.me, " ,Commit Quourm: ", rf.CommitQuorum, " Last Leader: ", rf.LastKnownLeader)
+	//fmt.Println("Me", rf.me, " ,Commit Quourm: ", rf.CommitQuorum, " Last Leader: ", rf.LastKnownLeader)
 	return rf
 }
 
@@ -473,9 +473,9 @@ func (rf *Raft) ticker() {
 		} else {
 			if time.Now().After(rf.electionTime) {
 				// run election
-				//////fmt.Println("starting election ", rf.me)
+				////////fmt.Println("starting election ", rf.me)
 				lablog.Debug(rf.me, lablog.VoteCandidate, "Changing to candidate and starting election")
-				fmt.Println(rf.me, " starting election")
+				//fmt.Println(rf.me, " starting election")
 				rf.startElection()
 			} else {
 				// sleep for some more time.
@@ -497,7 +497,7 @@ func (rf *Raft) startElection() {
 	votesCount := 1
 	votesReceived := make(map[int]struct{})
 	votesReceived[rf.me] = struct{}{}
-	//////fmt.Println("Initial vote count for me: ", rf.me, " is: ", voteCount)
+	////////fmt.Println("Initial vote count for me: ", rf.me, " is: ", voteCount)
 	lastIndex, lastTerm := rf.getLastLogIndexAndTerm()
 	requestVoteArgs := &RequestVoteArgs{
 		Term:         rf.CurrentTerm,
@@ -531,7 +531,7 @@ func (rf *Raft) startElection() {
 				return
 			}
 			if rf.CurrentTerm < requestVoteReply.Term {
-				//////fmt.Println("Me ", rf.me, " becoming follower start election")
+				////////fmt.Println("Me ", rf.me, " becoming follower start election")
 				rf.becomeFollower(requestVoteReply.Term)
 				rf.VotedFor = -1
 				rf.resetElectionTimeout()
@@ -550,7 +550,7 @@ func (rf *Raft) startElection() {
 				// TODO: Make dynamic for flexible commit.
 				if ((rf.LastKnownLeader == NULL_VALUE || COMMIT_QUORUM_SIZE+1 >= len(rf.peers)) && votesCount >= (len(rf.peers)/2)+1) ||
 					(COMMIT_QUORUM_SIZE+1 < len(rf.peers) && (rf.commitQuorumVoteSatisfied(votesCount, votesReceived) || rf.pessimisticVoteQuorumSatisfied(votesCount))) {
-					//////fmt.Println("Me changing to leader ", rf.me, "with votes", votesCount, "total nodes", len(rf.peers), "with term", rf.CurrentTerm)
+					////////fmt.Println("Me changing to leader ", rf.me, "with votes", votesCount, "total nodes", len(rf.peers), "with term", rf.CurrentTerm)
 					// convert to leader
 					rf.becomeLeader()
 					term := rf.CurrentTerm
@@ -579,7 +579,7 @@ func (rf *Raft) commitQuorumVoteSatisfied(votesCount int, votesReceived map[int]
 		isCommitQuorumSatisfied = true
 	}
 	if isCommitQuorumSatisfied && votesCount > (len(rf.peers)/2)+1 {
-		fmt.Println(rf.me, " Candidate vote map: ", votesReceived)
+		//fmt.Println(rf.me, " Candidate vote map: ", votesReceived)
 		return true
 	}
 	return false
@@ -593,7 +593,7 @@ func (rf *Raft) pessimisticVoteQuorumSatisfied(votesCount int) bool {
 // example RequestVote RPC handler.
 func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) {
 	// Your code here (2A, 2B).
-	//////fmt.Println("Got vote request from", rf.me, args.CandidateId)
+	////////fmt.Println("Got vote request from", rf.me, args.CandidateId)
 	rf.mu.Lock()
 	defer rf.mu.Unlock()
 	defer rf.persist()
@@ -601,7 +601,7 @@ func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) {
 	reply.Term = rf.CurrentTerm
 	reply.VoteGranted = false
 	if rf.CurrentTerm < args.Term {
-		//////fmt.Println("Me ", rf.me, " becoming follower Request vote")
+		////////fmt.Println("Me ", rf.me, " becoming follower Request vote")
 		rf.becomeFollower(args.Term)
 		rf.VotedFor = -1
 	}
@@ -683,10 +683,10 @@ func (rf *Raft) getNearestNodes() []int {
 	// nodes id are synonymous to zone. Zones are arranged in the form of a zone.
 	commitQuorum := make([]int, 0)
 	for i := 0; i < COMMIT_QUORUM_SIZE; i++ {
-		fmt.Println(rf.me, " Nearby Node: ", rf.peers[rf.me].NearByNodes[i])
+		//fmt.Println(rf.me, " Nearby Node: ", rf.peers[rf.me].NearByNodes[i])
 		commitQuorum = append(commitQuorum, rf.peers[rf.me].NearByNodes[i])
 	}
-	fmt.Println(rf.me, "Nearest Node quorum: ", commitQuorum)
+	//fmt.Println(rf.me, "Nearest Node quorum: ", commitQuorum)
 	// commit quorum will be in sorted state. except for 2 node quorum i.e COMMIT_QUORUM_SIZE = 1
 	// sort.Slice(commitQuorum, func(i, j int) bool {
 	// 	return commitQuorum[i] < commitQuorum[j]
@@ -697,7 +697,7 @@ func (rf *Raft) getNearestNodes() []int {
 // Sending append entries to followers in parallel
 
 func (rf *Raft) sendAppendEntries(term, quorumType int) {
-	// fmt.Println("Leader: ", rf.me, " Quorum Type: ", quorumType, " Commit Quorum: ", rf.CommitQuorum)
+	// //fmt.Println("Leader: ", rf.me, " Quorum Type: ", quorumType, " Commit Quorum: ", rf.CommitQuorum)
 	if quorumType == COMMIT_QUORUM_ONLY && len(rf.CommitQuorum) > 0 && COMMIT_QUORUM_SIZE+1 < len(rf.peers) {
 		for _, value := range rf.CommitQuorum {
 			if value == rf.me {
@@ -770,7 +770,7 @@ send:
 	select {
 	case <-time.After(RPC_TIMEOUT_DURATION):
 		// add
-		fmt.Println(rf.me, " Leader failed append entries for the follower after timeout ", peer)
+		//fmt.Println(rf.me, " Leader failed append entries for the follower after timeout ", peer)
 		rf.mu.Lock()
 		if rf.role == Leader && rf.CurrentTerm == term {
 			// TODO: Check with prof if this is fine or should divide with the entries size
@@ -785,13 +785,13 @@ send:
 
 		rf.mu.Unlock()
 		// retry
-		//fmt.Println("Leader:  ", rf.me, " Timeout for the follower: ", peer)
+		////fmt.Println("Leader:  ", rf.me, " Timeout for the follower: ", peer)
 		// go rf.appendEntrySender(term, peer)
 		goto send
 	case ok := <-okChan:
 		end := time.Now().UnixNano()
 		// if !timer.Stop() {
-		// //fmt.Println("Leader:  ", rf.me," Timer not stopped: ", peer)
+		// ////fmt.Println("Leader:  ", rf.me," Timer not stopped: ", peer)
 		// 	<-timer.C
 		// }
 		rf.mu.Lock()
@@ -805,7 +805,7 @@ send:
 			rf.unansweredRPCCount[peer] = rf.unansweredRPCCount[peer] + 1
 			rf.sendWakeOnQuorumChangeChannel(peer)
 			// retry
-			// fmt.Println(rf.me, " Leader failed append entries for the follower after timeout ", peer, ", start ", startTime, ", end: ", end)
+			// //fmt.Println(rf.me, " Leader failed append entries for the follower after timeout ", peer, ", start ", startTime, ", end: ", end)
 
 			if !rf.shouldRetry(i, term, peer) {
 				rf.mu.Unlock()
@@ -926,7 +926,7 @@ func (rf *Raft) findLastEntryForXTerm(term, index int) int {
 func (rf *Raft) checkCommit() {
 	// if pending commit quorum -> use majority commit
 	// else use commit quorum.
-	// fmt.Println(rf.me, " Leader Checking the committer, commit Index: ", rf.commitIndex, " last applied: ", rf.lastApplied, "last index and term", len(rf.Logs))
+	// //fmt.Println(rf.me, " Leader Checking the committer, commit Index: ", rf.commitIndex, " last applied: ", rf.lastApplied, "last index and term", len(rf.Logs))
 	for i := len(rf.Logs) - 1; i >= 0; i-- {
 		commitQuorumSatisfied := false
 		index := rf.Logs[i].Index
@@ -934,7 +934,7 @@ func (rf *Raft) checkCommit() {
 		count := 1
 		if !rf.pendingQuorumChange && len(rf.CommitQuorum) > 0 {
 			// check match index of the commit quorum if it
-			// fmt.Println("Checking commit quorum for commit")
+			// //fmt.Println("Checking commit quorum for commit")
 			quorumCount := 0
 			for _, peer := range rf.CommitQuorum {
 				if rf.matchIndex[peer] == index {
@@ -946,10 +946,10 @@ func (rf *Raft) checkCommit() {
 			if quorumCount == COMMIT_QUORUM_SIZE {
 				commitQuorumSatisfied = true
 			}
-			// fmt.Println("Quorum Count ", quorumCount)
+			// //fmt.Println("Quorum Count ", quorumCount)
 		}
 		if !commitQuorumSatisfied {
-			// fmt.Println("Checking majority quorum for commit")
+			// //fmt.Println("Checking majority quorum for commit")
 			for peer := range rf.matchIndex {
 				if rf.matchIndex[peer] == index {
 					count += 1
@@ -962,15 +962,15 @@ func (rf *Raft) checkCommit() {
 		if (commitQuorumSatisfied || count >= (len(rf.peers)/2)+1) && term == rf.CurrentTerm && index > rf.commitIndex {
 			// Resetting the values of commit quorum.
 			if rf.pendingQuorumChange && rf.pendingQuorumChangeIndex != NULL_VALUE && index >= rf.pendingQuorumChangeIndex {
-				fmt.Println("Pending Commit quorum: ", rf.pendingCommitQuorum)
+				//fmt.Println("Pending Commit quorum: ", rf.pendingCommitQuorum)
 				rf.CommitQuorum = rf.pendingCommitQuorum
 				rf.pendingQuorumChange = false
 				rf.pendingQuorumChangeIndex = NULL_VALUE
 				rf.pendingCommitQuorum = make([]int, 0)
 				rf.persist()
-				fmt.Println("Commit quorum changed successfully!")
+				//fmt.Println("Commit quorum changed successfully!")
 			}
-			// fmt.Println("Commit using commit quourm: ", commitQuorumSatisfied, " Pending change: ", rf.pendingQuorumChange, "Commit quorum len: ", len(rf.CommitQuorum))
+			// //fmt.Println("Commit using commit quourm: ", commitQuorumSatisfied, " Pending change: ", rf.pendingQuorumChange, "Commit quorum len: ", len(rf.CommitQuorum))
 			lablog.Debug(rf.me, lablog.Commit, "Updating the commit index to index %d", index)
 			rf.commitIndex = index
 			lablog.Debug(rf.me, lablog.RaftCondNotify, "Broadcast to notify committer in leader committer for commit index %d and last applied %d", rf.commitIndex, rf.lastApplied)
@@ -996,12 +996,12 @@ func (rf *Raft) heartBeatTicker() {
 		rf.mu.Lock()
 		// TODO: may be use a timer later on for easy of use and reset.
 		if rf.role == Leader {
-			//////fmt.Println("Me sending append entries", rf.me)
+			////////fmt.Println("Me sending append entries", rf.me)
 			lablog.Debug(rf.me, lablog.HeartBeatLeader, "*********** Sending heartbeats to the followers HeartBeatTicker *******************")
 			term := rf.CurrentTerm
 			rf.sendAppendEntries(term, ALL_NODES)
-			// fmt.Println(rf.me, " Sending heartbeat")
-			// fmt.Println("Math indexes: ", rf.matchIndex)
+			// //fmt.Println(rf.me, " Sending heartbeat")
+			// //fmt.Println("Math indexes: ", rf.matchIndex)
 			rf.mu.Unlock()
 		} else {
 			rf.mu.Unlock()
@@ -1143,9 +1143,9 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 	rf.Logs = append(rf.Logs, args.Entries[j:]...)
 	for ; j < len(args.Entries); j++ {
 		entry := args.Entries[j]
-		//fmt.Println("entry type : ", entry.Type)
+		////fmt.Println("entry type : ", entry.Type)
 		if entry.Type == NO_OP {
-			//fmt.Println("NO_OP entry: ", entry)
+			////fmt.Println("NO_OP entry: ", entry)
 			no_op := entry.Configuration
 			rf.CommitQuorum = no_op.CommitQuorum
 		}
@@ -1177,7 +1177,7 @@ func min(a, b int) int {
 }
 
 func (rf *Raft) becomeFollower(term int) {
-	//////fmt.Println("Me", rf.me, " becoming follower, current term", rf.CurrentTerm, " incoming term ", term)
+	////////fmt.Println("Me", rf.me, " becoming follower, current term", rf.CurrentTerm, " incoming term ", term)
 	// rf.VotedFor = -1
 	rf.CurrentTerm = term
 	rf.role = Follower
@@ -1280,7 +1280,7 @@ func (rf *Raft) installSnapshotSender(term, peer int) {
 		rf.mu.Unlock()
 		return
 	}
-	fmt.Println(rf.me, " Sending snapshot to the follower ", peer)
+	//fmt.Println(rf.me, " Sending snapshot to the follower ", peer)
 	nextIndex := rf.nextIndex[peer]
 	if nextIndex > rf.LastIncludedIndex {
 		// snapshot was already installed
@@ -1321,7 +1321,7 @@ retry:
 			return
 		}
 		rf.mu.Unlock()
-		fmt.Println(rf.me, " retrying snapshot for the follower ", peer)
+		//fmt.Println(rf.me, " retrying snapshot for the follower ", peer)
 		goto retry
 	case ok := <-okChan:
 		rf.mu.Lock()
@@ -1329,7 +1329,7 @@ retry:
 			// update the counter
 			// retry
 			// check the
-			fmt.Println(rf.me, " retrying snapshot for the follower ", peer)
+			//fmt.Println(rf.me, " retrying snapshot for the follower ", peer)
 			if rf.role != Leader || rf.CurrentTerm != term || !rf.retry {
 				rf.mu.Unlock()
 				return
@@ -1450,28 +1450,28 @@ func max(a, b int) int {
 
 func (rf *Raft) quorumAdapter() {
 	// timer := time.NewTimer(QUORUM_CHECK_TIME)
-	//fmt.Println("Inside the quorum adapter")
+	////fmt.Println("Inside the quorum adapter")
 	for !rf.killed() {
 		// TODO: Add select for the quorum change channel.
 		// TODO: if leader was part of the commit quorum then change the quorum immediately.  consider the nearest nodes. or
 		//
-		// fmt.Println("Quourm going into select")
+		// //fmt.Println("Quourm going into select")
 		select {
 		case <-time.After(QUORUM_CHECK_TIME):
-			fmt.Println("Quourm adapter timer")
+			//fmt.Println("Quourm adapter timer")
 		case <-rf.quorumChangeChan:
-			fmt.Println("Quourm adapter wake")
+			//fmt.Println("Quourm adapter wake")
 		}
-		// fmt.Println("Quourm adapter timer outside select")
+		// //fmt.Println("Quourm adapter timer outside select")
 		// if timer is still active. stop it.
 		rf.mu.Lock()
-		fmt.Println("Match indexes: ", rf.matchIndex)
-		fmt.Println("Current commit quourm", rf.CommitQuorum, " Pending commit quorum", rf.pendingCommitQuorum, " Pending quorum index", rf.pendingQuorumChangeIndex, " Commit index", rf.commitIndex)
+		//fmt.Println("Match indexes: ", rf.matchIndex)
+		//fmt.Println("Current commit quourm", rf.CommitQuorum, " Pending commit quorum", rf.pendingCommitQuorum, " Pending quorum index", rf.pendingQuorumChangeIndex, " Commit index", rf.commitIndex)
 		if rf.role != Leader || rf.killed() {
 			rf.mu.Unlock()
 			return
 		}
-		// fmt.Println("Time reset done")
+		// //fmt.Println("Time reset done")
 		// check if the commit quorum is maintaining the latency requirements.
 		if rf.pendingQuorumChangeIndex != NULL_VALUE || rf.pendingQuorumChange {
 			rf.mu.Unlock()
@@ -1485,7 +1485,7 @@ func (rf *Raft) quorumAdapter() {
 				break
 			}
 		}
-		// fmt.Println(rf.CommitQuorum, " Meets Latency req: ", meetsLatencyRequirement, " EWMA: ", rf.ewmavgMap)
+		// //fmt.Println(rf.CommitQuorum, " Meets Latency req: ", meetsLatencyRequirement, " EWMA: ", rf.ewmavgMap)
 		if !meetsLatencyRequirement || len(rf.CommitQuorum) == 0 {
 			// find the fastest quorum -> priority queue
 			heap := make([]EwmaEntry, 0)
@@ -1515,12 +1515,12 @@ func (rf *Raft) quorumAdapter() {
 			// update the metadata fields
 			// maybe make commit quorum nil or empty
 			lastLogIndex, _ := rf.getLastLogIndexAndTerm()
-			fmt.Println(rf.me, " Leader changing commit quorum: ", newCommitQuorum)
+			//fmt.Println(rf.me, " Leader changing commit quorum: ", newCommitQuorum)
 			noOpEntry := NoOpEntry{
 				LeaderId:     rf.me,
 				CommitQuorum: newCommitQuorum,
 			}
-			// fmt.Println(noOpEntry)
+			// //fmt.Println(noOpEntry)
 			entry := Log{
 				Term:          rf.CurrentTerm,
 				Index:         lastLogIndex + 1,
@@ -1533,7 +1533,7 @@ func (rf *Raft) quorumAdapter() {
 			rf.pendingCommitQuorum = newCommitQuorum
 			rf.persist()
 			rf.sendAppendEntries(rf.CurrentTerm, ALL_NODES)
-			// fmt.Println("Match indexes: ", rf.matchIndex)
+			// //fmt.Println("Match indexes: ", rf.matchIndex)
 		}
 		rf.mu.Unlock()
 
@@ -1559,12 +1559,12 @@ func (rf *Raft) sendWakeOnQuorumChangeChannel(peer int) {
 	// check if peer is part of commit quorum
 	// if yes check if wake should be sent.
 	// if idx := slices.IndexFunc(rf.CommitQuorum, func(c int) bool { return c == "key1" }
-	// fmt.Println("peer: ", peer, " commit quorum: ", rf.CommitQuorum, "unanswered count: ", rf.unansweredRPCCount[peer])
+	// //fmt.Println("peer: ", peer, " commit quorum: ", rf.CommitQuorum, "unanswered count: ", rf.unansweredRPCCount[peer])
 	if slices.Index(rf.CommitQuorum, peer) == -1 {
 		return
 	}
 	if rf.unansweredRPCCount[peer] >= MAX_UNANSWERED_RPC && rf.pendingQuorumChangeIndex == NULL_VALUE {
-		// fmt.Println(rf.me, " Leader, sending wake to quorum change channel.")
+		// //fmt.Println(rf.me, " Leader, sending wake to quorum change channel.")
 		go func() {
 			time.Sleep(1 * time.Millisecond)
 			select {
