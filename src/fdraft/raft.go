@@ -1067,7 +1067,7 @@ func (rf *Raft) findXIndex(prevLogIndex, term int) int {
 func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply) {
 	rf.mu.Lock()
 	// lablog.Debug(rf.me, lablog.Heart, "Received AppendEntries Req %v,and commit index %d", args, rf.commitIndex)
-	defer time.Sleep(time.Duration(rf.me*rf.rand.Intn(10)) * time.Millisecond)
+	// defer time.Sleep(time.Duration(rf.me*rf.rand.Intn(10)) * time.Millisecond)
 
 	defer rf.mu.Unlock()
 	reply.Success = false
