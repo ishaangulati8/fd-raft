@@ -52,7 +52,7 @@ func (server *Server) start(wg *deadlock.WaitGroup) {
 		panic(err)
 	}
 	// l, err := net.Listen("tcp", me.Address) // For local
-	l, err := net.Listen("tcp", "localhost:3001") // For cloud lab
+	l, err := net.Listen("tcp", ":3001") // For cloud lab
 	if err != nil {
 		panic(err)
 	}
