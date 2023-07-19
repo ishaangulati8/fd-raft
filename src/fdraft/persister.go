@@ -8,15 +8,6 @@ import (
 	"github.com/sasha-s/go-deadlock"
 )
 
-//
-// support for Raft and kvraft to save persistent
-// Raft state (log &c) and k/v server snapshots.
-//
-// we will use the original persister.go to test your code for grading.
-// so, while you can modify this code to help you debug, please
-// test with the original before submitting.
-//
-
 type Persister struct {
 	mu        deadlock.Mutex
 	id int

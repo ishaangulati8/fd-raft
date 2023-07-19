@@ -146,7 +146,6 @@ type InstallSnapshotArgs struct {
 	LastIncludedIndex int
 	LastIncludedTerm  int
 	Data              []byte
-	CommitQuorum      []int
 }
 
 type InstallSnapshotReply struct {
@@ -225,7 +224,6 @@ func (rf *Raft) encodedRaftState() []byte {
 
 // save Raft's persistent state to stable storage,
 // where it can later be retrieved after a crash and restart.
-// see paper's Figure 2 for a description of what should be persistent.
 func (rf *Raft) persist() {
 	buffer := new(bytes.Buffer)
 	encoder := labgob.NewEncoder(buffer)
@@ -277,13 +275,11 @@ func (rf *Raft) readPersist(data []byte) {
 // have more recent info since it communicate the snapshot on applyCh.
 func (rf *Raft) CondInstallSnapshot(lastIncludedTerm int, lastIncludedIndex int, snapshot []byte) bool {
 
-	// Your code here (2D).
 
 	return true
 }
 
 func (rf *Raft) Snapshot(index int, snapshot []byte) {
-	// Your code here (2D).
 	rf.mu.Lock()
 	// fmt.Println(rf.me, "Taking snapshot for the index: ", index, "and temp log: ", rf.snapShotCache)
 	defer rf.mu.Unlock()
@@ -395,13 +391,11 @@ func Make(peers []Node, me int,
 	rf.rand = rand.New(rand.NewSource(time.Now().UnixNano()))
 	rf.lastHeartBeatTime = time.Now()
 	rf.batching = batching
-	// cond :=
 	rf.applyCond = new(deadlock.Cond)
 	rf.applyCond.Cond = *sync.NewCond(&rf.mu)
 	// sync.NewCond(&rf.mu)
 	rf.resetElectionTimeout()
 
-	// Your initialization code here (2A, 2B, 2C).
 	// initialize from state persisted before a crash
 	rf.LastIncludedIndex = 0
 	rf.LastIncludedTerm = 0
@@ -470,11 +464,7 @@ func (rf *Raft) resetElectionTimeout() {
 func (rf *Raft) ticker() {
 	// time.Sleep(5 * time.Second)
 	for !rf.killed() {
-
-		// Your code here to check if a leader election should
-		// be started and to randomize sleeping time using
-		// time.Sleep().
-		time.Sleep(5 * time.Second)
+		time.Sleep(10 * time.Second)
 		var sleepTime time.Duration
 		rf.mu.Lock()
 		if rf.role == Leader {
@@ -1303,7 +1293,6 @@ func (rf *Raft) installSnapshotSender(term, peer int) {
 	args.LastIncludedIndex = rf.LastIncludedIndex
 	args.LastIncludedTerm = rf.LastIncludedTerm
 	args.Data = rf.persister.ReadSnapshot()
-	args.CommitQuorum = rf.CommitQuorum
 	index := rf.snapshotReqSerialMap[peer] + 1
 	rf.snapshotReqSerialMap[peer] = index
 	rf.mu.Unlock()

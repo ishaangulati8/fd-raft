@@ -20,5 +20,5 @@
 # Go workspace file
 go.work
 
-files/raft_*
-files/snapshot_*
+raft_*
+snapshot_*
