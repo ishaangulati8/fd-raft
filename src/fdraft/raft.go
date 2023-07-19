@@ -16,6 +16,7 @@ import (
 	lablog "fd-raft/fdraft/logger"
 
 	"github.com/sasha-s/go-deadlock"
+	"golang.org/x/exp/slices"
 )
 
 type ApplyMsg struct {
@@ -39,12 +40,14 @@ const (
 	NULL_VALUE                   int           = -1
 	RANDOM_RANGE                               = 400
 	SNAPSHOT_CACHE_SIZE                        = 20
-	QUORUM_CHECK_TIME            time.Duration = 3000 * time.Millisecond // Time interval to check the quorum performance.
-	RPC_TIMEOUT_DURATION         time.Duration = 5000 * time.Millisecond
-	RESPONSE_LATENCY_REQUIREMENT float64       = 12 * 1000000
+	QUORUM_CHECK_TIME            time.Duration = 4000 * time.Millisecond // Time interval to check the quorum performance.
+	RPC_TIMEOUT_DURATION         time.Duration = 1500 * time.Millisecond
+	SNAPSHOT_TIMEOUT_DURATION    time.Duration = 5000 * time.Millisecond
+	BATCHER_DURATION             time.Duration = 5
+	RESPONSE_LATENCY_REQUIREMENT float64       = 30 * 1000000
 	COMMIT_QUORUM_ONLY           int           = iota
 	ALL_NODES
-	COMMIT_QUORUM_SIZE int = 1// Actual Commit Quorum Leader + commit quorum
+	COMMIT_QUORUM_SIZE int = 10 // Actual Commit Quorum Leader + commit quorum
 	MAX_UNANSWERED_RPC int = 20
 	CLIENT_OPERATION   int = iota
 	NO_OP
@@ -95,6 +98,7 @@ type Raft struct {
 	unansweredRPCCount                                map[int]int
 	quorumChangeChan                                  chan bool // Channel to initiate commit quorum change when one of the followers hasn't responded for 20 continuos RPCs, only use non blocking send.
 	zone                                              int
+	batching                                          int
 }
 
 type Log struct {
@@ -343,10 +347,12 @@ func (rf *Raft) Start(command interface{}) (int, int, bool) {
 
 		rf.Logs = append(rf.Logs, entry)
 		lablog.Debug(rf.me, lablog.HeartBeatLeader, "**********Starting agreement for index %d and term %d****************", index, term)
-		// rf.persist()
 		rf.newEntry = true
 		term := rf.CurrentTerm
-		// rf.sendAppendEntries(term, ALL_NODES)
+		if rf.batching == 0 {
+			rf.persist()
+			rf.sendAppendEntries(term, ALL_NODES)
+		}
 		rf.mu.Unlock()
 		return index, term, isLeader
 	}
@@ -366,7 +372,7 @@ func (rf *Raft) killed() bool {
 }
 
 func Make(peers []Node, me int,
-	persister *Persister, applyCh chan ApplyMsg, rpcServer *Server) *Raft {
+	persister *Persister, applyCh chan ApplyMsg, rpcServer *Server, batching int) *Raft {
 
 	// TODO: Read from persistent storage.
 	rf := &Raft{}
@@ -388,6 +394,7 @@ func Make(peers []Node, me int,
 	rf.matchIndex = make(map[int]int, 0)
 	rf.rand = rand.New(rand.NewSource(time.Now().UnixNano()))
 	rf.lastHeartBeatTime = time.Now()
+	rf.batching = batching
 	// cond :=
 	rf.applyCond = new(deadlock.Cond)
 	rf.applyCond.Cond = *sync.NewCond(&rf.mu)
@@ -435,7 +442,7 @@ func (rf *Raft) batcher() {
 		} else {
 			rf.mu.Unlock()
 		}
-		time.Sleep(5 * time.Millisecond)
+		time.Sleep(BATCHER_DURATION * time.Millisecond)
 	}
 }
 
@@ -467,6 +474,7 @@ func (rf *Raft) ticker() {
 		// Your code here to check if a leader election should
 		// be started and to randomize sleeping time using
 		// time.Sleep().
+		time.Sleep(5 * time.Second)
 		var sleepTime time.Duration
 		rf.mu.Lock()
 		if rf.role == Leader {
@@ -657,7 +665,9 @@ func (rf *Raft) becomeLeader() {
 		}
 	}
 	go rf.heartBeatTicker()
-	go rf.batcher() //TODO:  Use while doing performance testing.
+	if rf.batching == 1 {
+		go rf.batcher() //TODO:  Use while doing performance testing.
+	}
 	// TODO: Select the closest nodes as the commit quorum and do majority commit.
 	if COMMIT_QUORUM_SIZE+1 < len(rf.peers) {
 		rf.pendingCommitQuorum = rf.getNearestNodes()
@@ -681,21 +691,24 @@ func (rf *Raft) becomeLeader() {
 
 func (rf *Raft) getNearestNodes() []int {
 	// nodes id are synonymous to zone. Zones are arranged in the form of a zone.
-	var newQuorum []int
-	if rf.me == 0 {
-		newQuorum = append(newQuorum, len(rf.peers)-1)
-	} else {
-		newQuorum = append(newQuorum, (rf.me-1)%len(rf.peers))
+	commitQuorum := make([]int, 0)
+	for i := 0; i < COMMIT_QUORUM_SIZE; i++ {
+		fmt.Println(rf.me, " Nearby Node: ", rf.peers[rf.me].NearByNodes[i])
+		commitQuorum = append(commitQuorum, rf.peers[rf.me].NearByNodes[i])
 	}
-	// newQuorum = append(newQuorum, (rf.me+1)%len(rf.peers))
-	return newQuorum
+	fmt.Println(rf.me, "Nearest Node quorum: ", commitQuorum)
+	// commit quorum will be in sorted state. except for 2 node quorum i.e COMMIT_QUORUM_SIZE = 1
+	// sort.Slice(commitQuorum, func(i, j int) bool {
+	// 	return commitQuorum[i] < commitQuorum[j]
+	// })
+	return commitQuorum
 }
 
 // Sending append entries to followers in parallel
 
 func (rf *Raft) sendAppendEntries(term, quorumType int) {
 	// fmt.Println("Leader: ", rf.me, " Quorum Type: ", quorumType, " Commit Quorum: ", rf.CommitQuorum)
-	if quorumType == COMMIT_QUORUM_ONLY && len(rf.CommitQuorum) > 0 && COMMIT_QUORUM_SIZE + 1 < len(rf.peers){
+	if quorumType == COMMIT_QUORUM_ONLY && len(rf.CommitQuorum) > 0 && COMMIT_QUORUM_SIZE+1 < len(rf.peers) {
 		for _, value := range rf.CommitQuorum {
 			if value == rf.me {
 				continue
@@ -767,17 +780,19 @@ send:
 	select {
 	case <-time.After(RPC_TIMEOUT_DURATION):
 		// add
+		fmt.Println(rf.me, " Leader failed append entries for the follower after timeout ", peer)
 		rf.mu.Lock()
 		if rf.role == Leader && rf.CurrentTerm == term {
 			// TODO: Check with prof if this is fine or should divide with the entries size
 			rf.ewmavgMap[peer].addValue(float64((time.Now().UnixNano() - startTime) / int64(divisor)))
+			rf.unansweredRPCCount[peer] = rf.unansweredRPCCount[peer] + 1
+			rf.sendWakeOnQuorumChangeChannel(peer)
 		}
 		if !rf.shouldRetry(i, term, peer) {
 			rf.mu.Unlock()
 			return
 		}
 
-		rf.unansweredRPCCount[peer] = rf.unansweredRPCCount[peer] + 1
 		rf.mu.Unlock()
 		// retry
 		//fmt.Println("Leader:  ", rf.me, " Timeout for the follower: ", peer)
@@ -797,7 +812,11 @@ send:
 		}
 		rf.ewmavgMap[peer].addValue(float64((time.Now().UnixNano() - startTime) / int64(divisor)))
 		if !ok {
+			rf.unansweredRPCCount[peer] = rf.unansweredRPCCount[peer] + 1
+			rf.sendWakeOnQuorumChangeChannel(peer)
 			// retry
+			// fmt.Println(rf.me, " Leader failed append entries for the follower after timeout ", peer, ", start ", startTime, ", end: ", end)
+
 			if !rf.shouldRetry(i, term, peer) {
 				rf.mu.Unlock()
 				return
@@ -952,7 +971,7 @@ func (rf *Raft) checkCommit() {
 		lablog.Debug(rf.me, lablog.RaftCondNotify, "Leader commit index %d, last applied %d, index %d, term %d, currentTerm %d", rf.commitIndex, rf.lastApplied, index, term, rf.CurrentTerm)
 		if (commitQuorumSatisfied || count >= (len(rf.peers)/2)+1) && term == rf.CurrentTerm && index > rf.commitIndex {
 			// Resetting the values of commit quorum.
-			if rf.pendingQuorumChange && rf.pendingQuorumChangeIndex != NULL_VALUE && rf.commitIndex >= rf.pendingQuorumChangeIndex {
+			if rf.pendingQuorumChange && rf.pendingQuorumChangeIndex != NULL_VALUE && index >= rf.pendingQuorumChangeIndex {
 				fmt.Println("Pending Commit quorum: ", rf.pendingCommitQuorum)
 				rf.CommitQuorum = rf.pendingCommitQuorum
 				rf.pendingQuorumChange = false
@@ -1290,47 +1309,78 @@ func (rf *Raft) installSnapshotSender(term, peer int) {
 	rf.mu.Unlock()
 	lablog.Debug(rf.me, lablog.Snap, "Sending install snapshot to the follower %d, with LastIncludedIndex %d and LastIncluded Term %d", peer, args.LastIncludedIndex, args.LastIncludedTerm)
 	reply := new(InstallSnapshotReply)
-	ok := rf.sendInstallSnapshot(peer, args, reply)
-	for !ok {
-		if !rf.retry {
-			return
+	okChan := make(chan bool)
+retry:
+	startTime := time.Now().UnixNano()
+	go func() {
+		ok := rf.sendInstallSnapshot(peer, args, reply)
+		select {
+		case okChan <- ok:
+		default:
 		}
+	}()
+	select {
+	case <-time.After(SNAPSHOT_TIMEOUT_DURATION):
 		rf.mu.Lock()
-		if rf.role != Leader || rf.CurrentTerm != term || rf.snapshotReqSerialMap[peer] > index {
-			// Term has changed or leadership has passed or new rpc was sent
-			if (rf.role == Leader || rf.CurrentTerm == term) {
-				rf.ewmavgMap[peer].addValue( 5 * 1000 * 1000000) // max value
-			}
+		if rf.role == Leader && rf.CurrentTerm == term {
+			rf.unansweredRPCCount[peer] = rf.unansweredRPCCount[peer] + 1
+			rf.ewmavgMap[peer].addValue(float64(time.Now().UnixNano() - startTime))
+			rf.sendWakeOnQuorumChangeChannel(peer)
+		}
+		if rf.role != Leader || rf.CurrentTerm != term || rf.snapshotReqSerialMap[peer] > index || rf.nextIndex[peer] > rf.LastIncludedIndex {
 			rf.mu.Unlock()
 			return
 		}
 		rf.mu.Unlock()
-		// retry
-		ok = rf.sendInstallSnapshot(peer, args, reply)
+		fmt.Println(rf.me, " retrying snapshot for the follower ", peer)
+		goto retry
+	case ok := <-okChan:
+		rf.mu.Lock()
+		if !ok {
+			// update the counter
+			// retry
+			// check the
+			fmt.Println(rf.me, " retrying snapshot for the follower ", peer)
+			if rf.role != Leader || rf.CurrentTerm != term || !rf.retry {
+				rf.mu.Unlock()
+				return
+			}
+			rf.unansweredRPCCount[peer] = rf.unansweredRPCCount[peer] + 1
+			rf.sendWakeOnQuorumChangeChannel(peer)
+			if rf.snapshotReqSerialMap[peer] > index || rf.nextIndex[peer] > rf.LastIncludedIndex {
+				rf.mu.Unlock()
+				return
+			}
+			rf.mu.Unlock()
+			goto retry
+		}
+		if reply.Term > rf.CurrentTerm {
+			rf.becomeFollower(reply.Term)
+			rf.VotedFor = -1
+			rf.persist()
+			rf.resetElectionTimeout()
+			rf.mu.Unlock()
+			return
+		}
+		if args.Term != rf.CurrentTerm || rf.role != Leader {
+			// stale request or leadership has passed.
+			rf.mu.Unlock()
+			return
+		}
+		rf.ewmavgMap[peer].addValue(float64(time.Now().UnixNano() - startTime))
+		if !reply.Success {
+			rf.mu.Unlock()
+			return
+		}
+		// update match and next index
+		nextIndex, matchIndex := rf.nextIndex[peer], rf.matchIndex[peer]
+		rf.nextIndex[peer] = max(nextIndex, args.LastIncludedIndex+1)
+		rf.matchIndex[peer] = max(matchIndex, args.LastIncludedIndex)
+		lablog.Debug(rf.me, lablog.Snap, "Install Snapshot successful for the follower %d, next index %d and match index %d", peer, rf.nextIndex[peer], rf.matchIndex[peer])
+		rf.mu.Unlock()
+		go rf.appendEntrySender(rf.CurrentTerm, peer)
+
 	}
-	rf.mu.Lock()
-	defer rf.mu.Unlock()
-	rf.ewmavgMap[peer].addValue( 5 * 1000 * 1000000)
-	if reply.Term > rf.CurrentTerm {
-		rf.becomeFollower(reply.Term)
-		rf.VotedFor = -1
-		rf.persist()
-		rf.resetElectionTimeout()
-		return
-	}
-	if args.Term != rf.CurrentTerm || rf.role != Leader {
-		// stale request or leadership has passed.
-		return
-	}
-	if !reply.Success {
-		return
-	}
-	// update match and next index
-	nextIndex, matchIndex := rf.nextIndex[peer], rf.matchIndex[peer]
-	rf.nextIndex[peer] = max(nextIndex, args.LastIncludedIndex+1)
-	rf.matchIndex[peer] = max(matchIndex, args.LastIncludedIndex)
-	lablog.Debug(rf.me, lablog.Snap, "Install Snapshot successful for the follower %d, next index %d and match index %d", peer, rf.nextIndex[peer], rf.matchIndex[peer])
-	go rf.appendEntrySender(rf.CurrentTerm, peer)
 }
 
 // args *AppendEntriesArgs, reply *AppendEntriesReply
@@ -1388,11 +1438,12 @@ func (rf *Raft) InstallSnapshot(args *InstallSnapshotArgs, reply *InstallSnapsho
 	rf.pendingSnapshotLastTerm = args.LastIncludedTerm
 	rf.commitIndex = max(rf.commitIndex, args.LastIncludedIndex)
 	rf.lastApplied = args.LastIncludedIndex
-	rf.CommitQuorum = args.CommitQuorum
+	// rf.CommitQuorum = args.CommitQuorum
 	lablog.Debug(rf.me, lablog.Snap, "Install snapshot successful, LastIncludedIndex %d, LastIncludedTerm %d, CommitIndex %d, and LastAppliedIndex %d", rf.LastIncludedIndex, rf.LastIncludedTerm, rf.commitIndex, rf.lastApplied)
 	encodedState := rf.encodedRaftState()
 	rf.persister.SaveStateAndSnapshot(encodedState, args.Data)
 	rf.applyCond.Cond.Broadcast()
+	reply.Success = true
 }
 
 func (rf *Raft) sendInstallSnapshot(server int, args *InstallSnapshotArgs, reply *InstallSnapshotReply) bool {
@@ -1409,25 +1460,38 @@ func max(a, b int) int {
 }
 
 func (rf *Raft) quorumAdapter() {
-	timer := time.NewTimer(QUORUM_CHECK_TIME)
+	// timer := time.NewTimer(QUORUM_CHECK_TIME)
 	//fmt.Println("Inside the quorum adapter")
 	for !rf.killed() {
 		// TODO: Add select for the quorum change channel.
 		// TODO: if leader was part of the commit quorum then change the quorum immediately.  consider the nearest nodes. or
 		//
-		<-timer.C
+		// fmt.Println("Quourm going into select")
+		select {
+		case <-time.After(QUORUM_CHECK_TIME):
+			fmt.Println("Quourm adapter timer")
+		case <-rf.quorumChangeChan:
+			fmt.Println("Quourm adapter wake")
+		}
+		// fmt.Println("Quourm adapter timer outside select")
+		// if timer is still active. stop it.
 		rf.mu.Lock()
 		fmt.Println("Match indexes: ", rf.matchIndex)
+		fmt.Println("Current commit quourm", rf.CommitQuorum, " Pending commit quorum", rf.pendingCommitQuorum, " Pending quorum index", rf.pendingQuorumChangeIndex, " Commit index", rf.commitIndex)
 		if rf.role != Leader || rf.killed() {
 			rf.mu.Unlock()
 			return
 		}
-		timer.Reset(QUORUM_CHECK_TIME)
+		// fmt.Println("Time reset done")
 		// check if the commit quorum is maintaining the latency requirements.
+		if rf.pendingQuorumChangeIndex != NULL_VALUE || rf.pendingQuorumChange {
+			rf.mu.Unlock()
+			continue
+		}
 		meetsLatencyRequirement := true
 		for _, value := range rf.CommitQuorum {
 			// if leader was part of the commit quorum, we need to change the quorum.
-			if value == rf.me || rf.ewmavgMap[value].getAvg() > RESPONSE_LATENCY_REQUIREMENT {
+			if value == rf.me || rf.ewmavgMap[value].getAvg() > RESPONSE_LATENCY_REQUIREMENT || rf.unansweredRPCCount[value] >= MAX_UNANSWERED_RPC {
 				meetsLatencyRequirement = false
 				break
 			}
@@ -1441,14 +1505,14 @@ func (rf *Raft) quorumAdapter() {
 			}
 			var newCommitQuorum []int
 			sort.Slice(heap, func(i, j int) bool {
-				return heap[i].getAvg() < heap[j].getAvg()
+				return (heap[i].getAvg() + float64(rf.unansweredRPCCount[heap[i].id])) < (heap[j].getAvg() + float64(rf.unansweredRPCCount[heap[j].id]))
 			})
 			for i := 0; i < COMMIT_QUORUM_SIZE && i < len(heap); i++ {
 				newCommitQuorum = append(newCommitQuorum, heap[i].id)
 			}
 
 			// check if the newly selected quorum is equal to the old quorum
-			// This could happen if the previous quourum is still the fastest and doesn't maintain latency requirements.
+			// This could happen if the previous quorum is still the fastest and doesn't maintain latency requirements.
 			sort.Slice(newCommitQuorum, func(i, j int) bool {
 				return newCommitQuorum[i] < newCommitQuorum[j]
 			})
@@ -1462,7 +1526,7 @@ func (rf *Raft) quorumAdapter() {
 			// update the metadata fields
 			// maybe make commit quorum nil or empty
 			lastLogIndex, _ := rf.getLastLogIndexAndTerm()
-			// fmt.Println("Leader: ", rf.me, "adding No op entry")
+			fmt.Println(rf.me, " Leader changing commit quorum: ", newCommitQuorum)
 			noOpEntry := NoOpEntry{
 				LeaderId:     rf.me,
 				CommitQuorum: newCommitQuorum,
@@ -1500,6 +1564,26 @@ func checkSliceEquals(first, second []int) bool {
 
 	return true
 
+}
+
+func (rf *Raft) sendWakeOnQuorumChangeChannel(peer int) {
+	// check if peer is part of commit quorum
+	// if yes check if wake should be sent.
+	// if idx := slices.IndexFunc(rf.CommitQuorum, func(c int) bool { return c == "key1" }
+	// fmt.Println("peer: ", peer, " commit quorum: ", rf.CommitQuorum, "unanswered count: ", rf.unansweredRPCCount[peer])
+	if slices.Index(rf.CommitQuorum, peer) == -1 {
+		return
+	}
+	if rf.unansweredRPCCount[peer] >= MAX_UNANSWERED_RPC && rf.pendingQuorumChangeIndex == NULL_VALUE {
+		// fmt.Println(rf.me, " Leader, sending wake to quorum change channel.")
+		go func() {
+			time.Sleep(1 * time.Millisecond)
+			select {
+			case rf.quorumChangeChan <- true:
+			default:
+			}
+		}()
+	}
 }
 
 func init() {

@@ -1,0 +1,94 @@
+{
+    "nodes": [
+        {
+            "id": 0,
+            "address": "128.110.218.255:3001",
+            "zone": 1,
+            "name": "utah-0",
+            "nearByNodes": [
+                1,
+                2
+            ]
+        },
+        {
+            "id": 1,
+            "address": "128.110.219.0:3001",
+            "zone": 1,
+            "name": "utah-1",
+            "nearByNodes": [
+                0,
+                2
+            ]
+        },
+        {
+            "id": 2,
+            "address": "128.110.218.241:3001",
+            "zone": 1,
+            "name": "utah-2",
+            "nearByNodes": [
+                0,
+                1
+                
+            ]
+        },
+        {
+            "id": 3,
+            "address": "128.105.146.95:3001",
+            "zone": 2,
+            "name": "wisc-0",
+            "nearByNodes": [
+                4,
+                5
+            ]
+        },
+        {
+            "id": 4,
+            "address": "128.105.146.94:3001",
+            "zone": 2,
+            "name": "wisc-1",
+            "nearByNodes": [
+                3,
+                5
+            ]
+        }, {
+            "id": 5,
+            "address": "128.105.146.88:3001",
+            "zone": 2,
+            "name": "wisc-2",
+            "nearByNodes": [
+                3,
+                4
+            ]
+        },
+        {
+            "id": 6,
+            "address": "130.127.134.100:3001",
+            "zone": 3,
+            "name": "clemson-1",
+            "nearByNodes": [
+                7,
+                8
+            ]
+        },
+        {
+            "id": 7,
+            "address": "130.127.134.84:3001",
+            "zone": 3,
+            "name": "clemson-1",
+            "nearByNodes": [
+                6,
+                8
+            ]
+        },
+        {
+            "id": 8,
+            "address": "130.127.134.72:3001",
+            "zone": 3,
+            "name": "clemson-1",
+            "nearByNodes": [
+                6,
+                7
+            ]
+        }
+    ]
+}

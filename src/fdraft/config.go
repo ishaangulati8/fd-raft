@@ -15,15 +15,16 @@ type Config struct {
 }
 
 type Node struct {
-	Id      int    `json:"id"`
-	Address string `json:"address"`
-	Zone    int    `json:"zone"`
+	Id          int    `json:"id"`
+	Address     string `json:"address"`
+	Zone        int    `json:"zone"`
+	Name        string `json:name`
+	NearByNodes []int  `json nearByNodes`
 }
 
+func (config Config) GetAtIndex(index int) (Node, error) {
+	if index > len(config.Nodes) {
 
-func (config Config) GetAtIndex(index int) (Node, error){
-	if (index > len(config.Nodes)) {
-		
 		return Node{}, errors.New("index > len")
 	}
 	if index < 0 {
@@ -32,13 +33,24 @@ func (config Config) GetAtIndex(index int) (Node, error){
 	return config.Nodes[index], nil
 }
 
-
- func BuildConfig() Config {
+func BuildConfig(serverCount int) Config {
 	path, err := os.Getwd()
 	if err != nil {
 		panic(err)
 	}
-	fd, err := os.Open(fmt.Sprintf("%s/files/config.json", path))
+	fileName := "config.json"
+	switch serverCount {
+	case 5:
+		fileName = "config-5.json"
+		break
+	case 7:
+		fileName = "config-7.json"
+		break
+	case 9:
+		fileName = "config-9.json"
+		break
+	}
+	fd, err := os.Open(fmt.Sprintf("%s/files/%s", path, fileName))
 	if err != nil {
 		panic(err)
 	}
@@ -51,8 +63,8 @@ func (config Config) GetAtIndex(index int) (Node, error){
 	// unmarshal the config.
 	config := new(Config)
 	ok := json.Unmarshal(byteContent, config)
-	if ok != nil {	
-		fmt.Println(config)	
+	if ok != nil {
+		fmt.Println(config)
 		fmt.Println(ok)
 		if e, ok := ok.(*json.SyntaxError); ok {
 			fmt.Println("syntax error at byte offset", e.Offset)

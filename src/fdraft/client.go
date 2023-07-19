@@ -1,124 +1,3 @@
-// package kvraft
-
-// import (
-// 	"crypto/rand"
-// 	"fmt"
-// 	"math/big"
-// 	"time"
-
-// 	"6.824/labrpc"
-// )
-
-// const RETRY_SLEEP time.Duration = time.Duration(250) * time.Millisecond
-
-// type Clerk struct {
-// 	servers []*labrpc.ClientEnd
-// 	// You will have to modify this struct.
-// 	me     int64
-// 	seq    int64
-// 	leader int
-// }
-
-// func nrand() int64 {
-// 	max := big.NewInt(int64(1) << 62)
-// 	bigx, _ := rand.Int(rand.Reader, max)
-// 	x := bigx.Int64()
-// 	return x
-// }
-
-// func MakeClerk(servers []*labrpc.ClientEnd) *Clerk {
-// 	ck := new(Clerk)
-// 	ck.servers = servers
-// 	// You'll have to add code here.
-// 	ck.me = nrand()
-// 	ck.seq = 0
-// 	ck.leader = 0
-// 	return ck
-// }
-
-// // fetch the current value for a key.
-// // returns "" if the key does not exist.
-// // keeps trying forever in the face of all other errors.
-// //
-// // you can send an RPC with code like this:
-// // ok := ck.servers[i].Call("KVServer.Get", &args, &reply)
-// //
-// // the types of args and reply (including whether they are pointers)
-// // must match the declared types of the RPC handler function's
-// // arguments. and reply must be passed as a pointer.
-// func (ck *Clerk) Get(key string) string {
-
-// 	// You will have to modify this function.
-// 	ck.seq += 1
-// 	args := GetArgs{
-// 		Key:      key,
-// 		ClientId: ck.me,
-// 		Seq:      ck.seq,
-// 	}
-// 	leader := ck.leader
-// 	for {
-// 		reply := new(GetReply)
-// 		ok := ck.servers[leader].Call("KVServer.Get", &args, reply)
-// 		if !ok || reply.Err == ErrWrongLeader {
-// 			leader = (leader + 1) % len(ck.servers)
-// 			fmt.Sprintf("Retrying with new leader %d", leader)
-// 		} else if reply.Err == ErrNoLeader {
-// 			leader = (leader + 1) % len(ck.servers)
-// 			time.Sleep(RETRY_SLEEP)
-// 		} else {
-// 			ck.leader = leader
-// 			if reply.Err == ErrNoKey {
-// 				return ""
-// 			}
-// 			return reply.Value
-// 		}
-// 	}
-// 	// return ""
-// }
-
-// // shared by Put and Append.
-// //
-// // you can send an RPC with code like this:
-// // ok := ck.servers[i].Call("KVServer.PutAppend", &args, &reply)
-// //
-// // the types of args and reply (including whether they are pointers)
-// // must match the declared types of the RPC handler function's
-// // arguments. and reply must be passed as a pointer.
-// func (ck *Clerk) PutAppend(key string, value string, op string) {
-// 	// You will have to modify this function.
-// 	ck.seq += 1
-// 	args := PutAppendArgs{
-// 		Key:      key,
-// 		Value:    value,
-// 		Op:       op,
-// 		ClientId: ck.me,
-// 		Seq:      ck.seq,
-// 	}
-// 	leader := ck.leader
-// 	fmt.Sprintf("trying with new leader %d", leader)
-// 	for {
-// 		reply := new(PutAppendReply)
-// 		ok := ck.servers[leader].Call("KVServer.PutAppend", &args, reply)
-// 		if !ok || reply.Err == ErrWrongLeader {
-// 			leader = (leader + 1) % len(ck.servers)
-// 			fmt.Sprintf("Retrying with new leader %d", leader)
-// 		} else if reply.Err == ErrNoLeader {
-// 			leader = (leader + 1) % len(ck.servers)
-// 			time.Sleep(RETRY_SLEEP)
-// 		} else {
-// 			ck.leader = leader
-// 			return
-// 		}
-// 	}
-// }
-
-// func (ck *Clerk) Put(key string, value string) {
-// 	ck.PutAppend(key, value, "Put")
-// }
-// func (ck *Clerk) Append(key string, value string) {
-// 	ck.PutAppend(key, value, "Append")
-// }
-
 package fdraft
 
 import (
@@ -135,10 +14,10 @@ type Clerk struct {
 
 }
 
-func MakeClerk() *Clerk {
+func MakeClerk(nodeCount int) *Clerk {
 	ck := new(Clerk)
 	ck.servers = make(map[int]*rpc.Client)
-	ck.config = BuildConfig()
+	ck.config = BuildConfig(nodeCount)
 	// You'll have to add code here.
 	ck.me = Nrand()
 	ck.leader = 0
@@ -146,18 +25,7 @@ func MakeClerk() *Clerk {
 	return ck
 }
 
-//
-// fetch the current value for a key.
-// returns "" if the key does not exist.
-// keeps trying forever in the face of all other errors.
-//
-// you can send an RPC with code like this:
-// ok := ck.servers[i].Call("KVServer.Get", &args, &reply)
-//
-// the types of args and reply (including whether they are pointers)
-// must match the declared types of the RPC handler function's
-// arguments. and reply must be passed as a pointer.
-//
+// Fetch the latest value for the key
 func (ck *Clerk) Get(key string) string {
 	// You will have to modify this function.
 	args := &GetArgs{
@@ -195,16 +63,7 @@ func (ck *Clerk) Get(key string) string {
 	}
 }
 
-//
-// shared by Put and Append.
-//
-// you can send an RPC with code like this:
-// ok := ck.servers[i].Call("KVServer.PutAppend", &args, &reply)
-//
-// the types of args and reply (including whether they are pointers)
-// must match the declared types of the RPC handler function's
-// arguments. and reply must be passed as a pointer.
-//
+// Put or append a key
 func (ck *Clerk) PutAppend(key string, value string, op opType) {
 	// You will have to modify this function.
 	args := &PutAppendArgs{

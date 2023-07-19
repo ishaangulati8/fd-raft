@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"sync/atomic"
 	"time"
+
 	"github.com/sasha-s/go-deadlock"
 
 	labgob "encoding/gob"
@@ -27,9 +28,6 @@ const (
 )
 
 type Op struct {
-	// Your definitions here.
-	// Field names must start with capital letters,
-	// otherwise RPC will break.
 	Type  opType
 	Key   string
 	Value string
@@ -104,6 +102,7 @@ func (kv *KVServer) Get(args *GetArgs, reply *GetReply) {
 	op := Op{Type: opGet, Key: args.Key, ClientId: args.ClientId, OpId: args.OpId}
 	// IMPORTANT: lock before rf.Start,
 	// to avoid raft finish too quick before kv.commandTbl has set replyCh for this commandIndex
+	start := time.Now().Nanosecond()
 	kv.mu.Lock()
 	index, term, isLeader := kv.rf.Start(op)
 	if term == 0 {
@@ -132,8 +131,10 @@ CheckTermAndWaitReply:
 				reply.Err = ErrShutdown
 				return
 			}
+			end := time.Now().Nanosecond()
 			// get reply from applier goroutine
 			lablog.Debug(kv.me, lablog.Server, "Op %v at idx: %d get %v", op, index, result)
+			fmt.Println(start, ", ", end, ", ", end-start)
 			*reply = GetReply{Err: result.Err, Value: result.Value}
 			return
 		case <-time.After(rpcHandlerCheckRaftTermInterval * time.Millisecond):
@@ -159,6 +160,7 @@ func (kv *KVServer) PutAppend(args *PutAppendArgs, reply *PutAppendReply) {
 	}
 
 	op := Op{Type: args.Op, Key: args.Key, Value: args.Value, ClientId: args.ClientId, OpId: args.OpId}
+	start := time.Now().Nanosecond()
 	kv.mu.Lock()
 	index, term, isLeader := kv.rf.Start(op)
 	if term == 0 {
@@ -185,6 +187,8 @@ CheckTermAndWaitReply:
 				reply.Err = ErrShutdown
 				return
 			}
+			end := time.Now().Nanosecond()
+			fmt.Println(start, ", ", end, ", ", end-start)
 			// get reply from applier goroutine
 			lablog.Debug(kv.me, lablog.Server, "Op %v at idx: %d completed", op, index)
 			reply.Err = result.Err
@@ -215,14 +219,14 @@ func (kv *KVServer) killed() bool {
 	return z == 1
 }
 
-func StartKVServer(servers []Node, me int, persister *Persister, rpcServer *Server, maxraftstate int) *KVServer {
+func StartKVServer(servers []Node, me int, persister *Persister, rpcServer *Server, maxraftstate, batching int) *KVServer {
 	labgob.Register(Op{})
 
 	kv := new(KVServer)
 	kv.me = me
 	kv.maxraftstate = float64(maxraftstate)
 	applyCh := make(chan ApplyMsg)
-	kv.rf = Make(servers, me, persister, applyCh, rpcServer)
+	kv.rf = Make(servers, me, persister, applyCh, rpcServer, batching)
 	// You may need initialization code here.
 	kv.appliedCommandIndex = kv.rf.LastIncludedIndex
 	kv.commandTbl = make(map[int]commandEntry)
@@ -243,10 +247,6 @@ func StartKVServer(servers []Node, me int, persister *Persister, rpcServer *Serv
 	return kv
 }
 
-// The applier go routine accept applyMsg from applyCh (from underlying raft),
-// modify key-value table accordingly,
-// reply modified result back to KVServer's RPC handler, if any, through channel identified by commandIndex
-// after every snapshoterAppliedMsgInterval msgs, trigger a snapshot
 func (kv *KVServer) applier(applyCh <-chan ApplyMsg, snapshotTrigger chan<- bool, lastSnapshoterTriggeredCommandIndex int) {
 	var r string
 
@@ -266,7 +266,7 @@ func (kv *KVServer) applier(applyCh <-chan ApplyMsg, snapshotTrigger chan<- bool
 			continue
 		}
 
-		if !m.CommandValid || m.Type != CLIENT_OPERATION{
+		if !m.CommandValid || m.Type != CLIENT_OPERATION {
 			continue
 		}
 
@@ -321,13 +321,6 @@ func (kv *KVServer) applier(applyCh <-chan ApplyMsg, snapshotTrigger chan<- bool
 		if ok {
 			lablog.Debug(kv.me, lablog.Server, "Command tbl found for cidx: %d, %v", m.CommandIndex, ce)
 			if ce.op != op {
-				// Your solution needs to handle a leader that has called Start() for a Clerk's RPC,
-				// but loses its leadership before the request is committed to the log.
-				// In this case you should arrange for the Clerk to re-send the request to other servers
-				// until it finds the new leader.
-				//
-				// One way to do this is for the server to detect that it has lost leadership,
-				// by noticing that a different request has appeared at the index returned by Start()
 				ce.replyCh <- applyResult{Err: ErrWrongLeader}
 			} else {
 				ce.replyCh <- applyResult{Err: OK, Value: r}

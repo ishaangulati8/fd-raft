@@ -27,19 +27,20 @@ type Proxy struct {
 	kvServer *KVServer
 }
 
-func MakeServer(id int, wg *deadlock.WaitGroup) *Server {
+func MakeServer(id, batching, nodeCount int, wg *deadlock.WaitGroup) *Server {
 	server := new(Server)
 	server.id = id
 	server.beginChan = make(chan int)
 	server.dead.Store(false)
 	server.peers = make(map[int]*rpc.Client)
-	server.config = BuildConfig()
+	server.config = BuildConfig(nodeCount)
 	persister := MakePersister(id)
 	server.Proxy = new(Proxy)
-	server.Proxy.kvServer = StartKVServer(server.config.Nodes, id, persister, server, 1000000) // start the kv server. raft recommends 1.2 mb (1000000)
+	server.Proxy.kvServer = StartKVServer(server.config.Nodes, id, persister, server, 1000000, batching) // start the kv server. raft recommends 1.2 mb (1000000)
 	server.server = rpc.NewServer()
 	server.server.RegisterName("Raft", server.Proxy)
 	server.server.RegisterName("KVServer", server.Proxy)
+	// server.server.RegisterName("Service", server)
 	go server.start(wg)
 	return server
 }
@@ -50,11 +51,13 @@ func (server *Server) start(wg *deadlock.WaitGroup) {
 	if err != nil {
 		panic(err)
 	}
-	l, err := net.Listen("tcp", me.Address)
+	// l, err := net.Listen("tcp", me.Address) // For local
+	l, err := net.Listen("tcp", "localhost:3001") // For cloud lab
 	if err != nil {
 		panic(err)
 	}
 	server.listener = l
+	fmt.Println(server.id, " listening on: ", me.Address)
 	for !server.shutDown() {
 		conn, err := server.listener.Accept()
 		if err != nil {
