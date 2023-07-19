@@ -275,7 +275,6 @@ func (rf *Raft) readPersist(data []byte) {
 // have more recent info since it communicate the snapshot on applyCh.
 func (rf *Raft) CondInstallSnapshot(lastIncludedTerm int, lastIncludedIndex int, snapshot []byte) bool {
 
-
 	return true
 }
 
@@ -594,7 +593,7 @@ func (rf *Raft) pessimisticVoteQuorumSatisfied(votesCount int) bool {
 // example RequestVote RPC handler.
 func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) {
 	// Your code here (2A, 2B).
-	////////fmt.Println("Got vote request from", rf.me, args.CandidateId)
+	fmt.Println("Got vote request from", rf.me, args.CandidateId)
 	rf.mu.Lock()
 	defer rf.mu.Unlock()
 	defer rf.persist()
