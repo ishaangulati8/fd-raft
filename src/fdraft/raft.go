@@ -47,7 +47,7 @@ const (
 	RESPONSE_LATENCY_REQUIREMENT float64       = 30 * 1000000
 	COMMIT_QUORUM_ONLY           int           = iota
 	ALL_NODES
-	COMMIT_QUORUM_SIZE int = 10 // Actual Commit Quorum Leader + commit quorum
+	COMMIT_QUORUM_SIZE int = 1 // Actual Commit Quorum Leader + commit quorum
 	MAX_UNANSWERED_RPC int = 20
 	CLIENT_OPERATION   int = iota
 	NO_OP
