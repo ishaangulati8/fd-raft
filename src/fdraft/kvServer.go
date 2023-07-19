@@ -191,7 +191,7 @@ CheckTermAndWaitReply:
 			}
 			duration := time.Since(start)
 			end := time.Now()
-			fmt.Println(start, ", ", end, ", ", duration)
+			fmt.Println(start, ", ", end, ", ", duration.Nanoseconds())
 			// get reply from applier goroutine
 			lablog.Debug(kv.me, lablog.Server, "Op %v at idx: %d completed", op, index)
 			reply.Err = result.Err
