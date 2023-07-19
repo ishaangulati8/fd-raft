@@ -44,7 +44,7 @@ const (
 	RPC_TIMEOUT_DURATION         time.Duration = 1500 * time.Millisecond
 	SNAPSHOT_TIMEOUT_DURATION    time.Duration = 5000 * time.Millisecond
 	BATCHER_DURATION             time.Duration = 5
-	RESPONSE_LATENCY_REQUIREMENT float64       = 30 * 1000000
+	RESPONSE_LATENCY_REQUIREMENT float64       = 30 * 100000
 	COMMIT_QUORUM_ONLY           int           = iota
 	ALL_NODES
 	COMMIT_QUORUM_SIZE int = 100 // Actual Commit Quorum Leader + commit quorum
