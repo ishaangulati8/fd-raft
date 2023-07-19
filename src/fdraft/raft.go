@@ -36,14 +36,14 @@ type Role int
 
 const (
 	LEADER_HEARTBEAT_TIME        time.Duration = 100
-	ELECTION_TIMEOUT_BASE        time.Duration = 300 // TODO: Test with 300 the timer was running out too quickly.
+	ELECTION_TIMEOUT_BASE        time.Duration = 600 // TODO: Test with 300 the timer was running out too quickly.
 	NULL_VALUE                   int           = -1
 	RANDOM_RANGE                               = 400
 	SNAPSHOT_CACHE_SIZE                        = 20
 	QUORUM_CHECK_TIME            time.Duration = 4000 * time.Millisecond // Time interval to check the quorum performance.
 	RPC_TIMEOUT_DURATION         time.Duration = 1500 * time.Millisecond
 	SNAPSHOT_TIMEOUT_DURATION    time.Duration = 5000 * time.Millisecond
-	BATCHER_DURATION             time.Duration = 5
+	BATCHER_DURATION             time.Duration = 10
 	RESPONSE_LATENCY_REQUIREMENT float64       = 30 * 1000000
 	COMMIT_QUORUM_ONLY           int           = iota
 	ALL_NODES
@@ -274,7 +274,6 @@ func (rf *Raft) readPersist(data []byte) {
 // A service wants to switch to snapshot.  Only do so if Raft hasn't
 // have more recent info since it communicate the snapshot on applyCh.
 func (rf *Raft) CondInstallSnapshot(lastIncludedTerm int, lastIncludedIndex int, snapshot []byte) bool {
-
 
 	return true
 }
@@ -519,6 +518,7 @@ func (rf *Raft) startElection() {
 			}
 			rf.mu.Unlock()
 			requestVoteReply := new(RequestVoteReply)
+			fmt.Println(rf.me, " sending request vote to the follower ", peer)
 			ok := rf.sendRequestVote(peer, requestVoteArgs, requestVoteReply)
 			if !ok {
 				return
@@ -593,7 +593,7 @@ func (rf *Raft) pessimisticVoteQuorumSatisfied(votesCount int) bool {
 // example RequestVote RPC handler.
 func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) {
 	// Your code here (2A, 2B).
-	////////fmt.Println("Got vote request from", rf.me, args.CandidateId)
+	fmt.Println("Got vote request from", rf.me, args.CandidateId)
 	rf.mu.Lock()
 	defer rf.mu.Unlock()
 	defer rf.persist()
@@ -1067,7 +1067,7 @@ func (rf *Raft) findXIndex(prevLogIndex, term int) int {
 func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply) {
 	rf.mu.Lock()
 	// lablog.Debug(rf.me, lablog.Heart, "Received AppendEntries Req %v,and commit index %d", args, rf.commitIndex)
-	defer time.Sleep(time.Duration(rf.me*rf.rand.Intn(10)) * time.Millisecond)
+	// defer time.Sleep(time.Duration(rf.me*rf.rand.Intn(10)) * time.Millisecond)
 
 	defer rf.mu.Unlock()
 	reply.Success = false
