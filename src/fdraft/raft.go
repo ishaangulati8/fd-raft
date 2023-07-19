@@ -43,7 +43,7 @@ const (
 	QUORUM_CHECK_TIME            time.Duration = 4000 * time.Millisecond // Time interval to check the quorum performance.
 	RPC_TIMEOUT_DURATION         time.Duration = 1500 * time.Millisecond
 	SNAPSHOT_TIMEOUT_DURATION    time.Duration = 5000 * time.Millisecond
-	BATCHER_DURATION             time.Duration = 5
+	BATCHER_DURATION             time.Duration = 10
 	RESPONSE_LATENCY_REQUIREMENT float64       = 30 * 1000000
 	COMMIT_QUORUM_ONLY           int           = iota
 	ALL_NODES
