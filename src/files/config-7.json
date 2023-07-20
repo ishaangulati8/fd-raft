@@ -22,20 +22,19 @@
         },
         {
             "id": 2,
-            "address": "128.105.146.95:3001",
-            "zone": 2,
-            "name": "wisc-0",
+            "address": "128.110.218.241:3001",
+            "zone": 1,
+            "name": "utah-2",
             "nearByNodes": [
-                3,
-                4
-                
+                0,
+                1
             ]
         },
         {
             "id": 3,
-            "address": "128.105.146.94:3001",
-            "zone": 4,
-            "name": "wisc-1",
+            "address": "130.127.134.100:3001",
+            "zone": 2,
+            "name": "clemson-0",
             "nearByNodes": [
                 4,
                 5
@@ -43,31 +42,32 @@
         },
         {
             "id": 4,
-            "address": "128.105.146.88:3001",
-            "zone": 5,
-            "name": "wisc-2",
+            "address": "130.127.134.84:3001",
+            "zone": 2,
+            "name": "clemson-1",
             "nearByNodes": [
                 3,
                 5
             ]
-        }, {
+        },
+        {
             "id": 5,
-            "address": "130.127.134.100:3001",
+            "address": "130.127.134.72:3001",
             "zone": 2,
-            "name": "clemson-1",
+            "name": "clemson-2",
             "nearByNodes": [
-                4,
-                6
+                3,
+                4
             ]
         },
         {
             "id": 6,
-            "address": "130.127.134.84:3001",
-            "zone": 2,
-            "name": "clemson-2",
+            "address": "128.105.146.88:3001",
+            "zone": 5,
+            "name": "wisc-2",
             "nearByNodes": [
-                4,
-                5
+                2,
+                3
             ]
         }
     ]
