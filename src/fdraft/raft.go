@@ -36,7 +36,7 @@ type Role int
 
 const (
 	LEADER_HEARTBEAT_TIME        time.Duration = 100
-	ELECTION_TIMEOUT_BASE        time.Duration = 600 // TODO: Test with 300 the timer was running out too quickly.
+	ELECTION_TIMEOUT_BASE        time.Duration = 800 // TODO: Test with 300 the timer was running out too quickly.
 	NULL_VALUE                   int           = -1
 	RANDOM_RANGE                               = 400
 	SNAPSHOT_CACHE_SIZE                        = 20
