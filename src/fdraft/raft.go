@@ -462,8 +462,8 @@ func (rf *Raft) resetElectionTimeout() {
 // heartsbeats recently.
 func (rf *Raft) ticker() {
 	// time.Sleep(5 * time.Second)
+	time.Sleep(15 * time.Second)
 	for !rf.killed() {
-		time.Sleep(10 * time.Second)
 		var sleepTime time.Duration
 		rf.mu.Lock()
 		if rf.role == Leader {
