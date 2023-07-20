@@ -103,8 +103,6 @@ func main() {
 			}
 		}
 
-		time.Sleep(4 * time.Second)
-
 		operationsPerThread := int(numberOfOperations / threadCount)
 		startTime := time.Now().UnixNano()
 		for i := 0; i < len(ck); i++ {
