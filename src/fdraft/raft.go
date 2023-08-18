@@ -698,7 +698,7 @@ func (rf *Raft) getNearestNodes() []int {
 
 func (rf *Raft) sendAppendEntries(term, quorumType int) {
 	// //fmt.Println("Leader: ", rf.me, " Quorum Type: ", quorumType, " Commit Quorum: ", rf.CommitQuorum)
-	if quorumType == COMMIT_QUORUM_ONLY && len(rf.CommitQuorum) > 0 && COMMIT_QUORUM_SIZE+1 < len(rf.peers) {
+	if quorumType == COMMIT_QUORUM_ONLY && len(rf.CommitQuorum) > 0 && COMMIT_QUORUM_SIZE+1 < len(rf.peers) && !rf.pendingQuorumChange {
 		for _, value := range rf.CommitQuorum {
 			if value == rf.me {
 				continue
@@ -1581,7 +1581,7 @@ func (rf *Raft) sendWakeOnQuorumChangeChannel(peer int) {
 		// //fmt.Println(rf.me, " Leader, sending wake to quorum change channel.")
 		go func(peer int) {
 			fmt.Println(rf.me, "Leader sending wake to change the crashed follower: ", peer, " commit quorum")
-			time.Sleep(1 * time.Millisecond)
+			// time.Sleep(1 * time.Millisecond)
 			select {
 			case rf.quorumChangeChan <- true:
 			default:
