@@ -5,6 +5,8 @@ import (
 	"net"
 	"net/rpc"
 	"sync/atomic"
+	"time"
+
 	// "time"
 
 	"github.com/sasha-s/go-deadlock"
@@ -26,6 +28,8 @@ type Server struct {
 type Proxy struct {
 	kvServer *KVServer
 }
+
+const BASE_RETRY_SLEEP int = 5
 
 func MakeServer(id, batching, nodeCount int, wg *deadlock.WaitGroup) *Server {
 	server := new(Server)
@@ -118,6 +122,8 @@ func (proxy *Proxy) Get(args *GetArgs, reply *GetReply) error {
 // function to call other functions.
 
 func (server *Server) Call(id int, method string, args, reply interface{}) bool {
+	count := 0
+retry:
 	server.rwMu.RLock()
 	peer, ok := server.peers[id]
 	server.rwMu.RUnlock()
@@ -130,10 +136,25 @@ func (server *Server) Call(id int, method string, args, reply interface{}) bool 
 			server.peers[id] = client
 			server.rwMu.Unlock()
 		} else {
+			count += 1
+			if count < 5 {
+				time.Sleep(time.Duration(count+BASE_RETRY_SLEEP) * time.Millisecond) //  back off for 5 tries
+				goto retry
+			}
 			return false
 		}
 	}
 	err := peer.Call(method, args, reply)
+	if err != nil {
+		count += 1
+		server.rwMu.Lock()
+		server.peers[id] = nil
+		server.rwMu.Unlock()
+		if count < 5 {
+			time.Sleep(time.Duration(count+BASE_RETRY_SLEEP) * time.Millisecond) //  back off for 5 tries
+			goto retry
+		}
+	}
 	return err == nil
 }
 

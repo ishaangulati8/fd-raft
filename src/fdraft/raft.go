@@ -47,6 +47,7 @@ const (
 	RESPONSE_LATENCY_REQUIREMENT float64       = 50 * 1000000
 	COMMIT_QUORUM_ONLY           int           = iota
 	ALL_NODES
+	ONLY_PEER
 	COMMIT_QUORUM_SIZE int = 1 // Actual Commit Quorum Leader + commit quorum
 	MAX_UNANSWERED_RPC int = 20
 	CLIENT_OPERATION   int = iota
@@ -717,11 +718,28 @@ func (rf *Raft) sendAppendEntries(term, quorumType int) {
 }
 
 // check if the request can be retried
-func (rf *Raft) shouldRetry(serialNumber int64, term, peer int) bool {
-	if !rf.retry || rf.role != Leader || rf.CurrentTerm != term || serialNumber < rf.reqSerialMap[peer] || rf.killed() {
-		return false
+func (rf *Raft) shouldRetry(serialNumber int64, term, peer, lastEntryIndex int) (bool, int) {
+	// if !rf.retry || rf.role != Leader || rf.CurrentTerm != term || serialNumber < rf.reqSerialMap[peer] || rf.killed() {
+	// 	return false,
+	// }
+	// return true
+	if !rf.retry || rf.role != Leader || rf.CurrentTerm != term || rf.killed() {
+		return false, NULL_VALUE
 	}
-	return true
+	if lastEntryIndex > rf.commitIndex && slices.Index(rf.CommitQuorum, peer) != -1 {
+		return true, ALL_NODES
+	}
+	if serialNumber < rf.reqSerialMap[peer] {
+		return false, NULL_VALUE
+	}
+	return true, ONLY_PEER
+}
+
+func (entry *AppendEntriesArgs) lastEntryIndex() int {
+	if l := len(entry.Entries); l > 0 {
+		return entry.Entries[l-1].Index
+	}
+	return NULL_VALUE // empty request or heartbeat
 }
 
 // Actual AppendEntries sender for a follower.
@@ -757,7 +775,7 @@ send:
 	reply := new(AppendEntriesReply)
 
 	// retry:
-	var startTime  = time.Now()
+	var startTime = time.Now()
 	// rpc function for timeout based rpcs.
 	go func(args *AppendEntriesArgs, reply *AppendEntriesReply, okChan chan bool) {
 		ok := rf.sendAppendEntry(peer, args, reply)
@@ -774,18 +792,23 @@ send:
 		rf.mu.Lock()
 		if rf.role == Leader && rf.CurrentTerm == term {
 			// TODO: Check with prof if this is fine or should divide with the entries size
-					// rf.ewmavgMap[peer].addValue(float64((time.Now().UnixNano() - startTime)))
+			// rf.ewmavgMap[peer].addValue(float64((time.Now().UnixNano() - startTime)))
 			rf.ewmavgMap[peer].addValue(float64(1500 * 1000000)) // max timeout value -> higher ewma.
-
 
 			rf.unansweredRPCCount[peer] = rf.unansweredRPCCount[peer] + 1
 			rf.sendWakeOnQuorumChangeChannel(peer)
 		}
-		if !rf.shouldRetry(i, term, peer) {
+		retry, quorumType := rf.shouldRetry(i, term, peer, args.lastEntryIndex())
+		if !retry {
 			rf.mu.Unlock()
 			return
 		}
-
+		// check if need to send to the cluster or just the node.
+		if quorumType == ALL_NODES {
+			rf.sendAppendEntries(rf.CurrentTerm, ALL_NODES)
+			rf.mu.Unlock()
+			return
+		}
 		rf.mu.Unlock()
 		// retry
 		////fmt.Println("Leader:  ", rf.me, " Timeout for the follower: ", peer)
@@ -811,7 +834,14 @@ send:
 			// retry
 			// //fmt.Println(rf.me, " Leader failed append entries for the follower after timeout ", peer, ", start ", startTime, ", end: ", end)
 
-			if !rf.shouldRetry(i, term, peer) {
+			retry, quorumType := rf.shouldRetry(i, term, peer, args.lastEntryIndex())
+			if !retry {
+				rf.mu.Unlock()
+				return
+			}
+			// check if need to send to the cluster or just the node.
+			if quorumType == ALL_NODES {
+				rf.sendAppendEntries(rf.CurrentTerm, ALL_NODES)
 				rf.mu.Unlock()
 				return
 			}
@@ -829,7 +859,7 @@ send:
 			rf.resetElectionTimeout()
 			rf.mu.Unlock()
 			return
-			
+
 		}
 		rf.ewmavgMap[peer].addValue(float64(time.Since(startTime).Nanoseconds() / int64(divisor)))
 		rf.unansweredRPCCount[peer] = 0
@@ -1344,7 +1374,7 @@ retry:
 			//fmt.Println(rf.me, " retrying snapshot for the follower ", peer)
 			// max timeout value -> higher ewma.
 			rf.ewmavgMap[peer].addValue(float64(1500 * 1000000)) // max timeout value -> higher ewma.
-			if  !rf.retry {
+			if !rf.retry {
 				rf.mu.Unlock()
 				return
 			}
@@ -1367,7 +1397,7 @@ retry:
 			rf.mu.Unlock()
 			return
 		}
-		
+
 		rf.ewmavgMap[peer].addValue(float64(time.Since(startTime).Nanoseconds()))
 		if !reply.Success {
 			rf.mu.Unlock()
@@ -1528,7 +1558,7 @@ func (rf *Raft) quorumAdapter() {
 			// maybe make commit quorum nil or empty
 			lastLogIndex, _ := rf.getLastLogIndexAndTerm()
 			fmt.Println(rf.me, " Leader changing commit quorum: ", newCommitQuorum, " time: ", time.Now().UnixNano())
-			fmt.Println(rf.me, " Leader changing EWMA Map: ",rf.ewmavgMap)
+			fmt.Println(rf.me, " Leader changing EWMA Map: ", rf.ewmavgMap)
 
 			noOpEntry := NoOpEntry{
 				LeaderId:     rf.me,
