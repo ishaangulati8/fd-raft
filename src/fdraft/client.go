@@ -1,17 +1,16 @@
 package fdraft
 
 import (
-	"time"
 	"net/rpc"
+	"time"
 )
 
 type Clerk struct {
 	servers map[int]*rpc.Client
-	me     int64 // my client id
-	leader int   // remember which server turned out to be the leader for the last RPC
-	opId   int   // operation id, increase monotonically
-	config Config
-
+	me      int64 // my client id
+	leader  int   // remember which server turned out to be the leader for the last RPC
+	opId    int   // operation id, increase monotonically
+	config  Config
 }
 
 func MakeClerk(nodeCount int) *Clerk {
@@ -106,8 +105,7 @@ func (ck *Clerk) Append(key string, value string) {
 	ck.PutAppend(key, value, opAppend)
 }
 
-
-func (ck *Clerk) Call(id int, method string, args, reply interface{}) bool{
+func (ck *Clerk) Call(id int, method string, args, reply interface{}) bool {
 	node, ok := ck.servers[id]
 	if !ok {
 		p, _ := ck.config.GetAtIndex(id)
@@ -122,4 +120,3 @@ func (ck *Clerk) Call(id int, method string, args, reply interface{}) bool{
 	err := node.Call(method, args, reply)
 	return err == nil
 }
-

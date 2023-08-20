@@ -20,9 +20,9 @@ const (
 
 // Put or Append
 type PutAppendArgs struct {
-	Key   string
-	Value string
-	Op    opType
+	Key      string
+	Value    string
+	Op       opType
 	ClientId int64 // id of client
 	OpId     int   // client operation id
 }
@@ -32,7 +32,7 @@ type PutAppendReply struct {
 }
 
 type GetArgs struct {
-	Key string
+	Key      string
 	ClientId int64 // id of client
 	OpId     int   // client operation id
 }

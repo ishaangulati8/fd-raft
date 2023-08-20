@@ -9,10 +9,10 @@ import (
 )
 
 type Persister struct {
-	mu        deadlock.Mutex
-	id int
-	raftstate []byte
-	snapshot  []byte
+	mu                     deadlock.Mutex
+	id                     int
+	raftstate              []byte
+	snapshot               []byte
 	raftFile, snapshotFile string
 }
 
@@ -23,7 +23,7 @@ func MakePersister(id int) *Persister {
 		panic(err)
 	}
 	persister.id = id
-	persister.raftFile = fmt.Sprintf("%s/files/raft_%d",dir , id)
+	persister.raftFile = fmt.Sprintf("%s/files/raft_%d", dir, id)
 	persister.snapshotFile = fmt.Sprintf("%s/files/snapshot_%d", dir, id)
 	return persister
 }
@@ -49,7 +49,7 @@ func (ps *Persister) SaveRaftState(state []byte) {
 	ps.mu.Lock()
 	defer ps.mu.Unlock()
 	tempFile := fmt.Sprintf("%s-temp", ps.raftFile)
-	// write to temp file and replace the existing file 
+	// write to temp file and replace the existing file
 	if err := os.WriteFile(tempFile, state, 0666); err != nil {
 		panic(err)
 	}
@@ -92,7 +92,7 @@ func (ps *Persister) SaveStateAndSnapshot(state []byte, snapshot []byte) {
 	ps.mu.Lock()
 	defer ps.mu.Unlock()
 	tempRaftFile := fmt.Sprintf("%s-temp", ps.raftFile)
-	// write to temp file and replace the existing file 
+	// write to temp file and replace the existing file
 	if err := os.WriteFile(tempRaftFile, state, 0666); err != nil {
 		panic(err)
 	}
@@ -100,7 +100,7 @@ func (ps *Persister) SaveStateAndSnapshot(state []byte, snapshot []byte) {
 		panic(err)
 	}
 	tempSnapFile := fmt.Sprintf("%s-temp", ps.snapshotFile)
-	// write to temp file and replace the existing file 
+	// write to temp file and replace the existing file
 	if err := os.WriteFile(tempSnapFile, state, 0666); err != nil {
 		panic(err)
 	}
@@ -134,4 +134,3 @@ func (ps *Persister) SnapshotSize() int64 {
 	}
 	return fileInfo.Size()
 }
-

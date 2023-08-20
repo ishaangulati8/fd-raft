@@ -2,14 +2,11 @@ package fdraft
 
 import (
 	"fmt"
+	"github.com/sasha-s/go-deadlock"
 	"net"
 	"net/rpc"
 	"sync/atomic"
 	"time"
-
-	// "time"
-
-	"github.com/sasha-s/go-deadlock"
 )
 
 type Server struct {
@@ -94,27 +91,42 @@ func (server *Server) Kill() {
 // exported RPC functions
 // Raft
 func (proxy *Proxy) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) error {
+	if proxy.kvServer.killed() {
+		return fmt.Errorf("Killed")
+	}
 	proxy.kvServer.rf.RequestVote(args, reply)
 	return nil
 }
 
 func (proxy *Proxy) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply) error {
+	if proxy.kvServer.killed() {
+		return fmt.Errorf("Killed")
+	}
 	proxy.kvServer.rf.AppendEntries(args, reply)
 	return nil
 }
 
 func (proxy *Proxy) InstallSnapshot(args *InstallSnapshotArgs, reply *InstallSnapshotReply) error {
+	if proxy.kvServer.killed() {
+		return fmt.Errorf("Killed")
+	}
 	proxy.kvServer.rf.InstallSnapshot(args, reply)
 	return nil
 }
 
 // KV Server
 func (proxy *Proxy) PutAppend(args *PutAppendArgs, reply *PutAppendReply) error {
+	if proxy.kvServer.killed() {
+		return fmt.Errorf("Killed")
+	}
 	proxy.kvServer.PutAppend(args, reply)
 	return nil
 }
 
 func (proxy *Proxy) Get(args *GetArgs, reply *GetReply) error {
+	if proxy.kvServer.killed() {
+		return fmt.Errorf("Killed")
+	}
 	proxy.kvServer.Get(args, reply)
 	return nil
 }
@@ -127,7 +139,7 @@ retry:
 	server.rwMu.RLock()
 	peer, ok := server.peers[id]
 	server.rwMu.RUnlock()
-	if !ok {
+	if !ok || peer == nil {
 		p, _ := server.config.GetAtIndex(id)
 		client, err := rpc.Dial("tcp", p.Address)
 		if err == nil {
@@ -173,4 +185,8 @@ func (proxy *Proxy) PrintRfLogs() {
 func (proxy *Proxy) StartAgreement(command int) {
 	index, term, isLeader := proxy.kvServer.rf.Start(command)
 	fmt.Println("Command: index, term, isLeader", command, index, term, isLeader)
+}
+
+func (proxy *Proxy) GetCommitQuorum() []int {
+	return proxy.kvServer.rf.GetCommitQuorum()
 }
