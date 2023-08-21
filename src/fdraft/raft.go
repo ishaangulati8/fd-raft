@@ -40,8 +40,8 @@ const (
 	NULL_VALUE                   int           = -1
 	RANDOM_RANGE                               = 400
 	SNAPSHOT_CACHE_SIZE                        = 20
-	QUORUM_CHECK_TIME            time.Duration = 4000 * time.Millisecond // Time interval to check the quorum performance.
-	RPC_TIMEOUT_DURATION         time.Duration = 1500 * time.Millisecond
+	QUORUM_CHECK_TIME            time.Duration = 4 * time.Second // Time interval to check the quorum performance.
+	RPC_TIMEOUT_DURATION         time.Duration = 150 * time.Millisecond
 	SNAPSHOT_TIMEOUT_DURATION    time.Duration = 7000 * time.Millisecond
 	BATCHER_DURATION             time.Duration = 10
 	RESPONSE_LATENCY_REQUIREMENT float64       = 50 * 1000000
@@ -210,6 +210,14 @@ func (rf *Raft) GetState() (int, bool) {
 	return term, isleader
 }
 
+func (rf *Raft) GetCommitQuorum() []int {
+	rf.mu.Lock()
+	defer rf.mu.Unlock()
+	commitQuorum := make([]int, COMMIT_QUORUM_SIZE)
+	copy(commitQuorum, rf.CommitQuorum)
+	return commitQuorum
+}
+
 func (rf *Raft) encodedRaftState() []byte {
 	buffer := new(bytes.Buffer)
 	encoder := labgob.NewEncoder(buffer)
@@ -347,7 +355,7 @@ func (rf *Raft) Start(command interface{}) (int, int, bool) {
 		term := rf.CurrentTerm
 		if rf.batching == 0 {
 			rf.persist()
-			rf.sendAppendEntries(term, ALL_NODES)
+			rf.sendAppendEntries(term, COMMIT_QUORUM_ONLY)
 		}
 		rf.mu.Unlock()
 		return index, term, isLeader
@@ -805,6 +813,7 @@ send:
 		}
 		// check if need to send to the cluster or just the node.
 		if quorumType == ALL_NODES {
+			fmt.Println("Sending message to all the nodes after timeout.")
 			rf.sendAppendEntries(rf.CurrentTerm, ALL_NODES)
 			rf.mu.Unlock()
 			return
@@ -841,6 +850,7 @@ send:
 			}
 			// check if need to send to the cluster or just the node.
 			if quorumType == ALL_NODES {
+				fmt.Println("Sending message to all the nodes as !ok.")
 				rf.sendAppendEntries(rf.CurrentTerm, ALL_NODES)
 				rf.mu.Unlock()
 				return

@@ -2,11 +2,12 @@ package fdraft
 
 import (
 	"fmt"
-	"github.com/sasha-s/go-deadlock"
 	"net"
 	"net/rpc"
 	"sync/atomic"
 	"time"
+
+	"github.com/sasha-s/go-deadlock"
 )
 
 type Server struct {

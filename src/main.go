@@ -14,8 +14,9 @@ import (
 
 func main() {
 	if len(os.Args) < 2 {
-		fmt.Println("Usage prog-binary type")
-		return
+		// fmt.Println("Usage prog-binary type")
+		// return
+		Test()
 	}
 	runType, err := strconv.Atoi(os.Args[1])
 	if err != nil {
@@ -189,22 +190,22 @@ func Test() {
 	}
 
 	time.Sleep(7 * time.Second)
-	fmt.Println("Killing leader")
+	fmt.Println("Killing commit quorum node")
 	// servers[leader].Kill()
-	commitQuorum := servers[leader].Proxy.GetCommitQuorum()
-	for len(commitQuorum) == 0 {
-		time.Sleep(5 * time.Second)
-		commitQuorum = servers[leader].Proxy.GetCommitQuorum()
-	}
-	servers[commitQuorum[0]].Kill()
-	for i := 0; i < 100; i++ {
+	// commitQuorum := servers[leader].Proxy.GetCommitQuorum()
+	// for len(commitQuorum) == 0 {
+	// 	time.Sleep(5 * time.Second)
+	// 	commitQuorum = servers[leader].Proxy.GetCommitQuorum()
+	// }
+	// servers[commitQuorum[0]].Kill()
+	for i := 0; i < 10; i++ {
 		key := fmt.Sprintf("Key: %d", i)
 		value := fmt.Sprintf("Value: %d", i)
 		ck[0].Put(key, value)
 	}
 	clientWg.Wait()
 	end := time.Now().UnixNano()
-
+	time.Sleep(5 * time.Second)
 	for i := 0; i < 5; i++ {
 		fmt.Println("\nLogs of server: ", i)
 		servers[i].Proxy.PrintRfLogs()
