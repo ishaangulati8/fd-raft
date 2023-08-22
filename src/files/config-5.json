@@ -24,7 +24,7 @@
             "id": 2,
             "address": "155.98.36.93:3001",
             "zone": 1,
-            "name": "Emulate-utah",
+            "name": "Mass",
             "nearByNodes": [
                 0,
                 1
@@ -37,17 +37,17 @@
             "name": "clemson-0",
             "nearByNodes": [
                 4,
-                0
+                2
             ]
         },
         {
             "id": 4,
             "address": "130.127.134.86:3001",
             "zone": 2,
-            "name": "clemson-2",
+            "name": "wisc-1",
             "nearByNodes": [
-                3,
-                0
+                2,
+                3
             ]
         }
     ]
