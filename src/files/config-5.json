@@ -22,7 +22,7 @@
         },
         {
             "id": 2,
-            "address": "155.98.36.93:3001",
+            "address": "198.22.255.95:3001",
             "zone": 1,
             "name": "Mass",
             "nearByNodes": [
@@ -44,10 +44,10 @@
             "id": 4,
             "address": "130.127.134.86:3001",
             "zone": 2,
-            "name": "wisc-1",
+            "name": "clemson-2",
             "nearByNodes": [
-                2,
-                3
+                3,
+                2
             ]
         }
     ]
