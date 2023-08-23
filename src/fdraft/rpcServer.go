@@ -5,7 +5,7 @@ import (
 	"net"
 	"net/rpc"
 	"sync/atomic"
-	// "time"
+	"time"
 
 	"github.com/sasha-s/go-deadlock"
 )
@@ -26,6 +26,8 @@ type Server struct {
 type Proxy struct {
 	kvServer *KVServer
 }
+
+const BASE_RETRY_SLEEP int = 5
 
 func MakeServer(id, batching, nodeCount int, wg *deadlock.WaitGroup) *Server {
 	server := new(Server)
@@ -90,27 +92,42 @@ func (server *Server) Kill() {
 // exported RPC functions
 // Raft
 func (proxy *Proxy) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) error {
+	if proxy.kvServer.killed() {
+		return fmt.Errorf("Killed")
+	}
 	proxy.kvServer.rf.RequestVote(args, reply)
 	return nil
 }
 
 func (proxy *Proxy) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply) error {
+	if proxy.kvServer.killed() {
+		return fmt.Errorf("Killed")
+	}
 	proxy.kvServer.rf.AppendEntries(args, reply)
 	return nil
 }
 
 func (proxy *Proxy) InstallSnapshot(args *InstallSnapshotArgs, reply *InstallSnapshotReply) error {
+	if proxy.kvServer.killed() {
+		return fmt.Errorf("Killed")
+	}
 	proxy.kvServer.rf.InstallSnapshot(args, reply)
 	return nil
 }
 
 // KV Server
 func (proxy *Proxy) PutAppend(args *PutAppendArgs, reply *PutAppendReply) error {
+	if proxy.kvServer.killed() {
+		return fmt.Errorf("Killed")
+	}
 	proxy.kvServer.PutAppend(args, reply)
 	return nil
 }
 
 func (proxy *Proxy) Get(args *GetArgs, reply *GetReply) error {
+	if proxy.kvServer.killed() {
+		return fmt.Errorf("Killed")
+	}
 	proxy.kvServer.Get(args, reply)
 	return nil
 }
@@ -118,10 +135,12 @@ func (proxy *Proxy) Get(args *GetArgs, reply *GetReply) error {
 // function to call other functions.
 
 func (server *Server) Call(id int, method string, args, reply interface{}) bool {
+	count := 0
+retry:
 	server.rwMu.RLock()
 	peer, ok := server.peers[id]
 	server.rwMu.RUnlock()
-	if !ok {
+	if !ok || peer == nil {
 		p, _ := server.config.GetAtIndex(id)
 		client, err := rpc.Dial("tcp", p.Address)
 		if err == nil {
@@ -130,10 +149,25 @@ func (server *Server) Call(id int, method string, args, reply interface{}) bool 
 			server.peers[id] = client
 			server.rwMu.Unlock()
 		} else {
+			count += 1
+			if count < 5 {
+				time.Sleep(time.Duration(count+BASE_RETRY_SLEEP) * time.Millisecond) //  back off for 5 tries
+				goto retry
+			}
 			return false
 		}
 	}
 	err := peer.Call(method, args, reply)
+	if err != nil {
+		count += 1
+		server.rwMu.Lock()
+		server.peers[id] = nil
+		server.rwMu.Unlock()
+		if count < 5 {
+			time.Sleep(time.Duration(count+BASE_RETRY_SLEEP) * time.Millisecond) //  back off for 5 tries
+			goto retry
+		}
+	}
 	return err == nil
 }
 
@@ -152,4 +186,8 @@ func (proxy *Proxy) PrintRfLogs() {
 func (proxy *Proxy) StartAgreement(command int) {
 	index, term, isLeader := proxy.kvServer.rf.Start(command)
 	fmt.Println("Command: index, term, isLeader", command, index, term, isLeader)
+}
+
+func (proxy *Proxy) GetCommitQuorum() []int {
+	return proxy.kvServer.rf.GetCommitQuorum()
 }

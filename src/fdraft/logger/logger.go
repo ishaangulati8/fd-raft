@@ -61,23 +61,23 @@ const (
 )
 
 var debugStart time.Time
-var  DebugVerbosity int
+var DebugVerbosity int
 
 func init() {
-	 DebugVerbosity = getVerbosity()
+	DebugVerbosity = getVerbosity()
 	debugStart = time.Now()
 	// disable datetime logging
 	log.SetFlags(log.Flags() &^ (log.Ldate | log.Ltime))
 }
 
 func Debug(serverId int, topic LogTopic, format string, a ...interface{}) {
-	if (( DebugVerbosity == 1 && topic != Info) ||  DebugVerbosity == 2) {
-	// if  DebugVerbosity == 1 &&
-	// 	(topic == RaftLock || topic == RaftUnlock || topic == RaftCondWait ||
-	// 		topic == RaftCondWake || topic == RaftCondNotify || topic == RaftApply || topic == Heart || topic == Timer || 
-	// 		topic == VoteCandidate || topic == HeartBeatLeader ||
-	// 		topic == ServerReceive || topic == ServerApply) 
-			// {
+	if (DebugVerbosity == 1 && topic != Info) || DebugVerbosity == 2 {
+		// if  DebugVerbosity == 1 &&
+		// 	(topic == RaftLock || topic == RaftUnlock || topic == RaftCondWait ||
+		// 		topic == RaftCondWake || topic == RaftCondNotify || topic == RaftApply || topic == Heart || topic == Timer ||
+		// 		topic == VoteCandidate || topic == HeartBeatLeader ||
+		// 		topic == ServerReceive || topic == ServerApply)
+		// {
 		time := time.Since(debugStart).Microseconds()
 		time /= 100
 		prefix := fmt.Sprintf("%06d %v ", time, string(topic))
@@ -90,7 +90,7 @@ func Debug(serverId int, topic LogTopic, format string, a ...interface{}) {
 }
 
 func ShardDebug(gid int, serverId int, topic LogTopic, format string, a ...interface{}) {
-	if  DebugVerbosity == 3 {
+	if DebugVerbosity == 3 {
 		time := time.Since(debugStart).Microseconds()
 		time /= 100
 		prefix := fmt.Sprintf("%06d %v ", time, string(topic))

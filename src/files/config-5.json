@@ -2,9 +2,9 @@
     "nodes": [
         {
             "id": 0,
-            "address": "128.110.218.255:3001",
+            "address": "155.98.38.121:3001",
             "zone": 1,
-            "name": "utah-0",
+            "name": "emulab-1",
             "nearByNodes": [
                 1,
                 2
@@ -12,9 +12,9 @@
         },
         {
             "id": 1,
-            "address": "128.110.219.0:3001",
+            "address": "155.98.38.115:3001",
             "zone": 1,
-            "name": "utah-1",
+            "name": "emulab-2",
             "nearByNodes": [
                 0,
                 2
@@ -22,32 +22,32 @@
         },
         {
             "id": 2,
-            "address": "128.110.218.241:3001",
+            "address": "198.22.255.95:3001",
             "zone": 1,
-            "name": "wisc-0",
+            "name": "Mass",
             "nearByNodes": [
                 0,
-                3
+                1
             ]
         },
         {
             "id": 3,
-            "address": "130.127.134.100:3001",
+            "address": "130.127.134.101:3001",
             "zone": 2,
-            "name": "clemson-1",
+            "name": "clemson-0",
             "nearByNodes": [
-                2,
-                4
+                4,
+                2
             ]
         },
         {
             "id": 4,
-            "address": "130.127.134.84:3001",
+            "address": "130.127.134.86:3001",
             "zone": 2,
             "name": "clemson-2",
             "nearByNodes": [
-                2,
-                3
+                3,
+                2
             ]
         }
     ]
